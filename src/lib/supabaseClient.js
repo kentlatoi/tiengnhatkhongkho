@@ -6,21 +6,28 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const dataProvider = import.meta.env.VITE_DATA_PROVIDER;
 
 let supabase = null;
 
-if (supabaseUrl && supabaseAnonKey && dataProvider === 'supabase') {
-  supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    },
-  });
+// Only require URL + Key to activate Supabase (VITE_DATA_PROVIDER is optional)
+if (supabaseUrl && supabaseAnonKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    });
+    console.log('[JLPT LMS] ✅ Supabase client initialized:', supabaseUrl);
+  } catch (err) {
+    console.error('[JLPT LMS] ❌ Failed to create Supabase client:', err);
+    supabase = null;
+  }
 } else {
   console.warn(
-    '[JLPT LMS] Supabase env vars missing or VITE_DATA_PROVIDER !== "supabase". Using localStorage fallback.'
+    '[JLPT LMS] ⚠️ Supabase env vars missing. Using localStorage fallback.',
+    { url: !!supabaseUrl, key: !!supabaseAnonKey }
   );
 }
 

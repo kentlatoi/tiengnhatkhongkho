@@ -35,7 +35,11 @@ import StudentGrammar from './pages/student/StudentGrammar';
 import ProfilePage from './pages/shared/ProfilePage';
 import CalendarPage from './pages/shared/CalendarPage';
 
-if (!isSupabase()) initStore();
+console.log('[App] 🟢 Module loaded. Supabase:', isSupabase());
+if (!isSupabase()) {
+  try { initStore(); console.log('[App] ✅ localStorage store initialized'); }
+  catch (err) { console.error('[App] ❌ initStore error:', err); }
+}
 
 function getRedirect(role) {
   if (role === 'admin') return '/admin';

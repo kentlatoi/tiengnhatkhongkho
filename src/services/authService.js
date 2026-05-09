@@ -4,6 +4,31 @@
 import { supabase, isSupabase } from '../lib/supabaseClient';
 import { usersStore, logActivity } from '../store/localStorage';
 
+/**
+ * Find profile by auth user — tries auth_id first, then email fallback
+ */
+async function findProfile(authUser) {
+  console.log('[Auth] 🔍 Profile query started for:', authUser.id, authUser.email);
+
+  // Try 1: match by auth_id column
+  let { data: profile, error } = await supabase
+    .from('profiles').select('*').eq('auth_id', authUser.id).maybeSingle();
+  if (profile) { console.log('[Auth] ✅ Profile found by auth_id'); return profile; }
+
+  // Try 2: match by id column (legacy — profile.id = auth.user.id)
+  ({ data: profile, error } = await supabase
+    .from('profiles').select('*').eq('id', authUser.id).maybeSingle());
+  if (profile) { console.log('[Auth] ✅ Profile found by id'); return profile; }
+
+  // Try 3: match by email
+  ({ data: profile, error } = await supabase
+    .from('profiles').select('*').eq('email', authUser.email).maybeSingle());
+  if (profile) { console.log('[Auth] ✅ Profile found by email'); return profile; }
+
+  console.error('[Auth] ❌ Profile not found. auth_id:', authUser.id, 'email:', authUser.email, 'error:', error);
+  return null;
+}
+
 const authService = {
   /**
    * Login with email + password
@@ -11,18 +36,21 @@ const authService = {
    */
   login: async (email, password) => {
     if (isSupabase()) {
+      console.log('[Auth] 🔐 Supabase login started for:', email);
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return { success: false, error: error.message };
-      // Fetch profile
-      const { data: profile, error: pErr } = await supabase
-        .from('profiles').select('*').eq('id', data.user.id).single();
-      if (pErr || !profile) return { success: false, error: 'Không tìm thấy hồ sơ người dùng' };
+      if (error) {
+        console.error('[Auth] ❌ Login error:', error.message);
+        return { success: false, error: error.message };
+      }
+      console.log('[Auth] ✅ Supabase auth success, fetching profile...');
+      const profile = await findProfile(data.user);
+      if (!profile) return { success: false, error: 'Không tìm thấy hồ sơ người dùng. Liên hệ Admin.' };
       const user = mapProfile(profile);
-      // Log activity
-      await supabase.from('activity_logs').insert({
+      // Log activity (fire-and-forget)
+      supabase.from('activity_logs').insert({
         user_id: user.id, user_name: user.name, user_email: user.email,
         role: user.role, action: 'Đăng nhập hệ thống',
-      });
+      }).then(() => {}).catch(() => {});
       return { success: true, user };
     }
     // localStorage fallback
@@ -47,19 +75,19 @@ const authService = {
         options: { data: { full_name: data.name } },
       });
       if (error) return { success: false, error: error.message };
-      // Insert profile
+      // Insert profile with auth_id
       const { error: pErr } = await supabase.from('profiles').insert({
-        id: authData.user.id,
+        auth_id: authData.user.id,
         email: data.email,
         full_name: data.name,
         role: 'student',
       });
       if (pErr) return { success: false, error: pErr.message };
       const user = { id: authData.user.id, email: data.email, name: data.name, role: 'student', avatar: '', phone: '', birthday: '', bio: '' };
-      await supabase.from('activity_logs').insert({
+      supabase.from('activity_logs').insert({
         user_id: user.id, user_name: user.name, user_email: user.email,
         role: 'student', action: 'Đăng ký tài khoản mới',
-      });
+      }).then(() => {}).catch(() => {});
       return { success: true, user };
     }
     // localStorage fallback
@@ -80,27 +108,26 @@ const authService = {
    */
   createUser: async (userData, adminUser) => {
     if (isSupabase()) {
-      // Use Supabase Auth admin invite or signUp
       const { data: authData, error } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
       });
       if (error) return { success: false, error: error.message };
       const { error: pErr } = await supabase.from('profiles').insert({
-        id: authData.user.id,
+        auth_id: authData.user.id,
         email: userData.email,
         full_name: userData.name,
         role: userData.role || 'student',
         phone: userData.phone || '',
-        birthday: userData.birthday || '',
+        birthday: userData.birthday || null,
         bio: userData.bio || '',
       });
       if (pErr) return { success: false, error: pErr.message };
       if (adminUser) {
-        await supabase.from('activity_logs').insert({
+        supabase.from('activity_logs').insert({
           user_id: adminUser.id, user_name: adminUser.name, user_email: adminUser.email,
           role: adminUser.role, action: `Tạo tài khoản ${userData.role}: ${userData.name}`,
-        });
+        }).then(() => {}).catch(() => {});
       }
       return { success: true, user: { id: authData.user.id, ...userData } };
     }
@@ -123,14 +150,28 @@ const authService = {
 
   /**
    * Get current session (Supabase only)
+   * Returns mapped user or null
    */
   getSession: async () => {
     if (!isSupabase()) return null;
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) return null;
-    const { data: profile } = await supabase
-      .from('profiles').select('*').eq('id', data.session.user.id).single();
-    return profile ? mapProfile(profile) : null;
+    console.log('[Auth] 🔄 getSession started...');
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      console.error('[Auth] ❌ getSession error:', error.message);
+      return null;
+    }
+    if (!data.session) {
+      console.log('[Auth] ℹ️ No active session');
+      return null;
+    }
+    console.log('[Auth] ✅ Session found, user:', data.session.user.id);
+    const profile = await findProfile(data.session.user);
+    if (!profile) {
+      console.warn('[Auth] ⚠️ Session exists but no profile found');
+      return null;
+    }
+    console.log('[Auth] ✅ Profile loaded:', profile.full_name, profile.role);
+    return mapProfile(profile);
   },
 
   /**
@@ -139,9 +180,9 @@ const authService = {
   onAuthStateChange: (callback) => {
     if (!isSupabase()) return { data: { subscription: { unsubscribe: () => {} } } };
     return supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[Auth] 🔔 Auth state change:', event);
       if (event === 'SIGNED_IN' && session) {
-        const { data: profile } = await supabase
-          .from('profiles').select('*').eq('id', session.user.id).single();
+        const profile = await findProfile(session.user);
         callback(profile ? mapProfile(profile) : null);
       } else if (event === 'SIGNED_OUT') {
         callback(null);
@@ -154,10 +195,12 @@ const authService = {
 function mapProfile(p) {
   return {
     id: p.id,
+    authId: p.auth_id || p.id,
     name: p.full_name || '',
     email: p.email || '',
     role: p.role || 'student',
     avatar: p.avatar_url || '',
+    avatarUrl: p.avatar_url || '',
     phone: p.phone || '',
     birthday: p.birthday || '',
     bio: p.bio || '',
