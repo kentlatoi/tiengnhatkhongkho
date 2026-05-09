@@ -12,6 +12,11 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const mounted = useRef(true);
+  const loadingRef = useRef(true);
+  const timeoutRef = useRef(null);
+
+  // Keep loadingRef in sync with loading state
+  useEffect(() => { loadingRef.current = loading; }, [loading]);
 
   // Restore session on mount
   useEffect(() => {
@@ -22,8 +27,8 @@ export function AuthProvider({ children }) {
     mounted.current = true;
 
     // Safety timeout — never stay on loading forever
-    const timeout = setTimeout(() => {
-      if (mounted.current && loading) {
+    timeoutRef.current = setTimeout(() => {
+      if (mounted.current && loadingRef.current) {
         console.warn('[AuthProvider] ⏰ Auth loading timeout after', AUTH_TIMEOUT_MS, 'ms');
         setLoading(false);
         setError('timeout');
@@ -57,7 +62,10 @@ export function AuthProvider({ children }) {
           setLoading(false);
           console.log('[AuthProvider] 🏁 Loading finished');
         }
-        clearTimeout(timeout);
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
       }
     };
 
@@ -65,7 +73,10 @@ export function AuthProvider({ children }) {
 
     return () => {
       mounted.current = false;
-      clearTimeout(timeout);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
