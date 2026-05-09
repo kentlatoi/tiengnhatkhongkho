@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './components/ui/Toast';
 import { initStore } from './store/localStorage';
+import { isSupabase } from './lib/supabaseClient';
 import DashboardLayout from './components/layout/DashboardLayout';
 import Login from './pages/auth/Login';
 import SignUp from './pages/auth/SignUp';
@@ -11,6 +12,7 @@ import SignUp from './pages/auth/SignUp';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminAccounts from './pages/admin/AdminAccounts';
 import AdminClasses from './pages/admin/AdminClasses';
+import AdminClassDetail from './pages/admin/AdminClassDetail';
 import AdminTeachers from './pages/admin/AdminTeachers';
 import AdminStudents from './pages/admin/AdminStudents';
 import AdminLogs from './pages/admin/AdminLogs';
@@ -33,7 +35,7 @@ import StudentGrammar from './pages/student/StudentGrammar';
 import ProfilePage from './pages/shared/ProfilePage';
 import CalendarPage from './pages/shared/CalendarPage';
 
-initStore();
+if (!isSupabase()) initStore();
 
 function getRedirect(role) {
   if (role === 'admin') return '/admin';
@@ -69,6 +71,7 @@ export default function App() {
               <Route index element={<AdminDashboard />} />
               <Route path="accounts" element={<AdminAccounts />} />
               <Route path="classes" element={<AdminClasses />} />
+              <Route path="classes/:classId" element={<AdminClassDetail />} />
               <Route path="teachers" element={<AdminTeachers />} />
               <Route path="students" element={<AdminStudents />} />
               <Route path="logs" element={<AdminLogs />} />

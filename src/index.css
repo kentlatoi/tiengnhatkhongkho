@@ -56,7 +56,7 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
   border-radius: 1rem;
-  padding: 1.5rem;
+  padding: 1.25rem;
 }
 
 @utility glass-sidebar {
@@ -113,6 +113,7 @@
     transform: translateY(-2px);
     box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3);
   }
+  &:active { transform: translateY(0); }
 }
 
 @utility btn-secondary {
@@ -132,6 +133,7 @@
     background-color: var(--color-surface-200);
     transform: translateY(-2px);
   }
+  &:active { transform: translateY(0); }
 }
 
 @utility btn-danger {
@@ -151,6 +153,7 @@
     background-color: var(--color-sakura-400);
     transform: translateY(-2px);
   }
+  &:active { transform: translateY(0); }
 }
 
 @utility btn-ghost {
@@ -177,6 +180,7 @@
   background-color: white;
   color: var(--color-surface-900);
   transition: all 0.2s;
+  font-size: 0.875rem;
   &::placeholder { color: var(--color-surface-400); }
   &:focus {
     outline: none;
@@ -248,13 +252,14 @@
   -webkit-line-clamp: 2;
 }
 
-/* Base */
+/* ── Base ── */
 html { scroll-behavior: smooth; }
 body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 50%, #ecfdf5 100%);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 .dark body {
   background: linear-gradient(135deg, #020617 0%, #0f172a 50%, #022c22 100%);
@@ -262,8 +267,94 @@ body {
 
 .font-jp { font-family: var(--font-jp); }
 
-/* Scrollbar */
+/* ── Scrollbar ── */
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--color-surface-300); border-radius: 9999px; }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--color-surface-700); }
+
+/* ── Scrollable tabs (mobile) ── */
+.scrollable-tabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 0.25rem;
+}
+.scrollable-tabs::-webkit-scrollbar { display: none; }
+.scrollable-tabs > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* ── Mobile card table ── */
+@media (max-width: 639px) {
+  .glass-card {
+    padding: 1rem;
+  }
+  
+  .mobile-stack {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .mobile-stack > * {
+    width: 100%;
+  }
+}
+
+/* ── Touch-friendly buttons ── */
+@media (max-width: 639px) {
+  .btn-primary, .btn-secondary, .btn-danger, .btn-ghost {
+    min-height: 2.75rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* ── Calendar mobile compact ── */
+@media (max-width: 639px) {
+  .calendar-grid .calendar-cell {
+    min-height: 2.5rem;
+    padding: 0.25rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* ── Audio player range input ── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-primary-500);
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-surface-300);
+}
+.dark input[type="range"]::-webkit-slider-runnable-track {
+  background: var(--color-surface-600);
+}
+
+/* ── Select styling ── */
+select.input {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.5rem;
+}

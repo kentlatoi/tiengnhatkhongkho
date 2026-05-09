@@ -1,26 +1,42 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { grammarTopicsStore, grammarPointsStore, progressStore } from '../../store/localStorage';
+import grammarService from '../../services/grammarService';
 import SearchBar from '../../components/ui/SearchBar';
 import EmptyState from '../../components/ui/EmptyState';
+import LoadingSkeleton from '../../components/ui/LoadingSkeleton';
 import { motion } from 'framer-motion';
 
 export default function StudentGrammar() {
   const { user } = useAuth();
-  const topics = grammarTopicsStore.getAll();
-  const points = grammarPointsStore.getAll();
+  const [topics, setTopics] = useState([]);
+  const [points, setPoints] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeTopic, setActiveTopic] = useState(null);
   const [search, setSearch] = useState('');
-  const [progress, setProgress] = useState(() => progressStore.getForStudent(user.id));
+  const [learnedGrammar, setLearnedGrammar] = useState([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const [t, p] = await Promise.all([grammarService.getTopics(), grammarService.getAllPoints()]);
+      setTopics(t); setPoints(p);
+      try { const pr = JSON.parse(localStorage.getItem(`progress_${user.id}`) || '{}'); setLearnedGrammar(pr.learnedGrammar || []); } catch {}
+      setLoading(false);
+    };
+    load();
+  }, [user.id]);
 
   const topicPoints = activeTopic ? points.filter(p => p.topicId === activeTopic.id) : points;
   const filtered = topicPoints.filter(p => !search || [p.pattern, p.explanation, p.vietnameseExplanation].some(f => f?.toLowerCase().includes(search.toLowerCase())));
-  const learnedGrammar = progress.learnedGrammar || [];
 
   const toggleLearned = (gId) => {
-    progressStore.toggleLearnedGrammar(user.id, gId);
-    setProgress(progressStore.getForStudent(user.id));
+    setLearnedGrammar(prev => {
+      const next = prev.includes(gId) ? prev.filter(id => id !== gId) : [...prev, gId];
+      try { const p = JSON.parse(localStorage.getItem(`progress_${user.id}`) || '{}'); p.learnedGrammar = next; localStorage.setItem(`progress_${user.id}`, JSON.stringify(p)); } catch {}
+      return next;
+    });
   };
+
+  if (loading) return <LoadingSkeleton type="cards" count={4} />;
 
   return (
     <div>

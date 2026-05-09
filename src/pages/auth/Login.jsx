@@ -7,18 +7,26 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    const result = login(email, password);
-    if (result.success) {
-      const r = result.user.role;
-      navigate(r === 'admin' ? '/admin' : r === 'teacher' ? '/teacher' : '/student');
-    } else {
-      setError(result.error);
+    setLoading(true);
+    try {
+      const result = await login(email, password);
+      if (result.success) {
+        const r = result.user.role;
+        navigate(r === 'admin' ? '/admin' : r === 'teacher' ? '/teacher' : '/student');
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      setError('Lỗi kết nối. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -63,13 +71,20 @@ export default function Login() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="input-label">Email</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="input" placeholder="email@example.com" />
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="input" placeholder="email@example.com" disabled={loading} />
               </div>
               <div>
                 <label className="input-label">Mật khẩu</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="input" placeholder="••••••••" />
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="input" placeholder="••••••••" disabled={loading} />
               </div>
-              <button type="submit" className="btn-primary w-full py-3">Đăng nhập →</button>
+              <button type="submit" className="btn-primary w-full py-3" disabled={loading}>
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Đang đăng nhập...
+                  </span>
+                ) : 'Đăng nhập →'}
+              </button>
             </form>
             <p className="text-center text-sm text-surface-500 mt-6">
               Chưa có tài khoản?{' '}

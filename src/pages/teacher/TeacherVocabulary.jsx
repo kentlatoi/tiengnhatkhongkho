@@ -1,16 +1,18 @@
-import { useState, useCallback } from 'react';
-import { vocabTopicsStore, vocabItemsStore } from '../../store/localStorage';
+import { useState, useEffect, useCallback } from 'react';
+import vocabularyService from '../../services/vocabularyService';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/ui/Modal';
 import SearchBar from '../../components/ui/SearchBar';
 import EmptyState from '../../components/ui/EmptyState';
-import { motion, AnimatePresence } from 'framer-motion';
+import LoadingSkeleton from '../../components/ui/LoadingSkeleton';
+import { motion } from 'framer-motion';
 import { v4 as uuid } from 'uuid';
 
 export default function TeacherVocabulary() {
   const { isTeacher } = useAuth();
-  const [topics, setTopics] = useState(() => vocabTopicsStore.getAll());
-  const [items, setItems] = useState(() => vocabItemsStore.getAll());
+  const [topics, setTopics] = useState([]);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeTopic, setActiveTopic] = useState(null);
   const [search, setSearch] = useState('');
   const [showTopicForm, setShowTopicForm] = useState(false);
@@ -21,25 +23,40 @@ export default function TeacherVocabulary() {
   const blankItem = { japanese: '', hiragana: '', romaji: '', vietnamese: '', english: '', example: '' };
   const [itemForm, setItemForm] = useState(blankItem);
 
-  const refresh = useCallback(() => { setTopics(vocabTopicsStore.getAll()); setItems(vocabItemsStore.getAll()); }, []);
+  const refresh = useCallback(async () => {
+    const [t, i] = await Promise.all([vocabularyService.getTopics(), vocabularyService.getAllItems()]);
+    setTopics(t); setItems(i);
+  }, []);
 
-  const saveTopic = (e) => {
+  useEffect(() => { refresh().finally(() => setLoading(false)); }, [refresh]);
+
+  const saveTopic = async (e) => {
     e.preventDefault();
-    if (editTopic) vocabTopicsStore.update(editTopic.id, topicForm);
-    else vocabTopicsStore.add({ id: uuid(), ...topicForm });
-    refresh(); setShowTopicForm(false); setEditTopic(null);
+    if (editTopic) await vocabularyService.updateTopic(editTopic.id, topicForm);
+    else await vocabularyService.createTopic({ id: uuid(), ...topicForm });
+    await refresh(); setShowTopicForm(false); setEditTopic(null);
   };
 
-  const deleteTopic = (id) => { if (confirm('Xóa chủ đề này?')) { vocabTopicsStore.remove(id); refresh(); if (activeTopic?.id === id) setActiveTopic(null); } };
-
-  const saveItem = (e) => {
-    e.preventDefault();
-    if (editItem) vocabItemsStore.update(editItem.id, itemForm);
-    else vocabItemsStore.add({ id: uuid(), topicId: activeTopic.id, learned: false, ...itemForm });
-    refresh(); setShowItemForm(false); setEditItem(null); setItemForm(blankItem);
+  const deleteTopic = async (id) => {
+    if (confirm('Xóa chủ đề này?')) {
+      await vocabularyService.removeTopic(id);
+      await refresh();
+      if (activeTopic?.id === id) setActiveTopic(null);
+    }
   };
 
-  const deleteItem = (id) => { if (confirm('Xóa từ vựng này?')) { vocabItemsStore.remove(id); refresh(); } };
+  const saveItem = async (e) => {
+    e.preventDefault();
+    if (editItem) await vocabularyService.updateItem(editItem.id, itemForm);
+    else await vocabularyService.createItem({ id: uuid(), topicId: activeTopic.id, learned: false, ...itemForm });
+    await refresh(); setShowItemForm(false); setEditItem(null); setItemForm(blankItem);
+  };
+
+  const deleteItem = async (id) => {
+    if (confirm('Xóa từ vựng này?')) { await vocabularyService.removeItem(id); await refresh(); }
+  };
+
+  if (loading) return <LoadingSkeleton type="cards" count={6} />;
 
   const topicItems = activeTopic ? items.filter(i => i.topicId === activeTopic.id) : items;
   const filtered = topicItems.filter(i => !search || [i.japanese, i.hiragana, i.romaji, i.vietnamese, i.english].some(f => f?.toLowerCase().includes(search.toLowerCase())));
@@ -57,9 +74,7 @@ export default function TeacherVocabulary() {
         )}
       </div>
 
-      <div className="mb-6">
-        <SearchBar value={search} onChange={setSearch} placeholder="Tìm từ vựng..." />
-      </div>
+      <div className="mb-6"><SearchBar value={search} onChange={setSearch} placeholder="Tìm từ vựng..." /></div>
 
       {/* Topic chips */}
       <div className="flex flex-wrap gap-2 mb-6">
@@ -73,13 +88,11 @@ export default function TeacherVocabulary() {
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer ${activeTopic?.id === t.id ? 'bg-primary-500 text-white' : 'bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400 hover:bg-surface-200'}`}>
               {t.title}
             </button>
-            {isTeacher && (
-              <>
-                <button onClick={() => { setEditTopic(t); setTopicForm({ title: t.title, description: t.description }); setShowTopicForm(true); }}
-                  className="text-xs text-surface-400 hover:text-surface-600 cursor-pointer">✏️</button>
-                <button onClick={() => deleteTopic(t.id)} className="text-xs text-surface-400 hover:text-sakura-500 cursor-pointer">✕</button>
-              </>
-            )}
+            {isTeacher && <>
+              <button onClick={() => { setEditTopic(t); setTopicForm({ title: t.title, description: t.description }); setShowTopicForm(true); }}
+                className="text-xs text-surface-400 hover:text-surface-600 cursor-pointer">✏️</button>
+              <button onClick={() => deleteTopic(t.id)} className="text-xs text-surface-400 hover:text-sakura-500 cursor-pointer">✕</button>
+            </>}
           </div>
         ))}
       </div>

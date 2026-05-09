@@ -1,21 +1,50 @@
+import { useState, useEffect } from 'react';
 import DashboardCard from '../../components/ui/DashboardCard';
-import { usersStore, classesStore, sessionsStore, vocabItemsStore, grammarPointsStore, activityLogsStore } from '../../store/localStorage';
+import userService from '../../services/userService';
+import classService from '../../services/classService';
+import sessionService from '../../services/sessionService';
+import activityLogService from '../../services/activityLogService';
+import vocabularyService from '../../services/vocabularyService';
+import LoadingSkeleton from '../../components/ui/LoadingSkeleton';
 import { motion } from 'framer-motion';
 
 export default function AdminDashboard() {
-  const users = usersStore.getAll();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [users, classes, sessions, logs, vocabItems] = await Promise.all([
+          userService.getAll(),
+          classService.getAll(),
+          sessionService.getAll(),
+          activityLogService.getAll(),
+          vocabularyService.getAllItems(),
+        ]);
+        setData({ users, classes, sessions, logs, vocabItems });
+      } catch (err) {
+        console.error('AdminDashboard load error:', err);
+        setData({ users: [], classes: [], sessions: [], logs: [], vocabItems: [] });
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  if (loading) return <LoadingSkeleton type="cards" count={6} />;
+  const { users, classes, sessions, logs, vocabItems } = data;
+
   const teachers = users.filter(u => u.role === 'teacher');
   const students = users.filter(u => u.role === 'student');
-  const classes = classesStore.getAll();
-  const sessions = sessionsStore.getAll();
-  const logs = activityLogsStore.getAll();
 
   const stats = [
     { icon: '👤', title: 'Tổng tài khoản', value: users.length, subtitle: `${teachers.length} GV · ${students.length} HS`, color: 'primary' },
     { icon: '👩‍🏫', title: 'Giáo viên', value: teachers.length, subtitle: 'Đang hoạt động', color: 'blue' },
     { icon: '🎓', title: 'Học sinh', value: students.length, subtitle: 'Đã đăng ký', color: 'accent' },
     { icon: '🏫', title: 'Lớp học', value: classes.length, subtitle: `${sessions.length} buổi học`, color: 'teal' },
-    { icon: '📝', title: 'Từ vựng', value: vocabItemsStore.getAll().length, subtitle: 'Từ vựng N5', color: 'amber' },
+    { icon: '📝', title: 'Từ vựng', value: vocabItems.length, subtitle: 'Từ vựng N5', color: 'amber' },
     { icon: '📋', title: 'Hoạt động', value: logs.length, subtitle: 'Tổng lượt ghi', color: 'sakura' },
   ];
 

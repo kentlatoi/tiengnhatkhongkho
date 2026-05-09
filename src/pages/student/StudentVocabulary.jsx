@@ -1,27 +1,44 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { vocabTopicsStore, vocabItemsStore, progressStore } from '../../store/localStorage';
+import vocabularyService from '../../services/vocabularyService';
 import SearchBar from '../../components/ui/SearchBar';
 import EmptyState from '../../components/ui/EmptyState';
+import LoadingSkeleton from '../../components/ui/LoadingSkeleton';
 import { motion } from 'framer-motion';
 
 export default function StudentVocabulary() {
   const { user } = useAuth();
-  const topics = vocabTopicsStore.getAll();
-  const items = vocabItemsStore.getAll();
+  const [topics, setTopics] = useState([]);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeTopic, setActiveTopic] = useState(null);
   const [search, setSearch] = useState('');
   const [flashcardMode, setFlashcardMode] = useState(false);
-  const [progress, setProgress] = useState(() => progressStore.getForStudent(user.id));
+  const [learnedVocab, setLearnedVocab] = useState([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const [t, i] = await Promise.all([vocabularyService.getTopics(), vocabularyService.getAllItems()]);
+      setTopics(t); setItems(i);
+      // Try load learned state from localStorage
+      try { const p = JSON.parse(localStorage.getItem(`progress_${user.id}`) || '{}'); setLearnedVocab(p.learnedVocab || []); } catch {}
+      setLoading(false);
+    };
+    load();
+  }, [user.id]);
 
   const topicItems = activeTopic ? items.filter(i => i.topicId === activeTopic.id) : items;
   const filtered = topicItems.filter(i => !search || [i.japanese, i.hiragana, i.romaji, i.vietnamese, i.english].some(f => f?.toLowerCase().includes(search.toLowerCase())));
-  const learnedVocab = progress.learnedVocab || [];
 
   const toggleLearned = (vocabId) => {
-    progressStore.toggleLearnedVocab(user.id, vocabId);
-    setProgress(progressStore.getForStudent(user.id));
+    setLearnedVocab(prev => {
+      const next = prev.includes(vocabId) ? prev.filter(id => id !== vocabId) : [...prev, vocabId];
+      try { const p = JSON.parse(localStorage.getItem(`progress_${user.id}`) || '{}'); p.learnedVocab = next; localStorage.setItem(`progress_${user.id}`, JSON.stringify(p)); } catch {}
+      return next;
+    });
   };
+
+  if (loading) return <LoadingSkeleton type="cards" count={6} />;
 
   return (
     <div>

@@ -1,15 +1,29 @@
-import { usersStore, classesStore } from '../../store/localStorage';
+import { useState, useEffect } from 'react';
+import userService from '../../services/userService';
+import classService from '../../services/classService';
 import { DefaultAvatar } from '../../components/layout/Sidebar';
+import LoadingSkeleton from '../../components/ui/LoadingSkeleton';
 import { motion } from 'framer-motion';
 
 export default function AdminTeachers() {
-  const teachers = usersStore.getTeachers();
+  const [teachers, setTeachers] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([userService.getTeachers(), classService.getAll()])
+      .then(([t, c]) => { setTeachers(t); setClasses(c); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <LoadingSkeleton type="cards" count={6} />;
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-surface-900 dark:text-white mb-6">Giáo viên 👩‍🏫</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {teachers.map((t, i) => {
-          const classes = classesStore.getByTeacher(t.id);
+          const tClasses = classes.filter(c => c.teacherId === t.id);
           return (
             <motion.div key={t.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
               className="glass-card">
@@ -21,12 +35,12 @@ export default function AdminTeachers() {
                 </div>
               </div>
               <div className="flex items-center gap-4 text-sm text-surface-500">
-                <span>🏫 {classes.length} lớp</span>
+                <span>🏫 {tClasses.length} lớp</span>
                 <span>📅 {t.createdAt || '—'}</span>
               </div>
-              {classes.length > 0 && (
+              {tClasses.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  {classes.map(c => <span key={c.id} className="badge-primary text-[10px]">{c.name}</span>)}
+                  {tClasses.map(c => <span key={c.id} className="badge-primary text-[10px]">{c.name}</span>)}
                 </div>
               )}
             </motion.div>

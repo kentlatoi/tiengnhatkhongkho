@@ -1,16 +1,18 @@
-import { useState, useCallback } from 'react';
-import { grammarTopicsStore, grammarPointsStore } from '../../store/localStorage';
+import { useState, useEffect, useCallback } from 'react';
+import grammarService from '../../services/grammarService';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/ui/Modal';
 import SearchBar from '../../components/ui/SearchBar';
 import EmptyState from '../../components/ui/EmptyState';
+import LoadingSkeleton from '../../components/ui/LoadingSkeleton';
 import { motion } from 'framer-motion';
 import { v4 as uuid } from 'uuid';
 
 export default function TeacherGrammar() {
   const { isTeacher } = useAuth();
-  const [topics, setTopics] = useState(() => grammarTopicsStore.getAll());
-  const [points, setPoints] = useState(() => grammarPointsStore.getAll());
+  const [topics, setTopics] = useState([]);
+  const [points, setPoints] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeTopic, setActiveTopic] = useState(null);
   const [search, setSearch] = useState('');
   const [showTopicForm, setShowTopicForm] = useState(false);
@@ -21,23 +23,30 @@ export default function TeacherGrammar() {
   const blankPoint = { pattern: '', explanation: '', vietnameseExplanation: '', englishExplanation: '', examples: [''], notes: '' };
   const [pointForm, setPointForm] = useState(blankPoint);
 
-  const refresh = useCallback(() => { setTopics(grammarTopicsStore.getAll()); setPoints(grammarPointsStore.getAll()); }, []);
+  const refresh = useCallback(async () => {
+    const [t, p] = await Promise.all([grammarService.getTopics(), grammarService.getAllPoints()]);
+    setTopics(t); setPoints(p);
+  }, []);
 
-  const saveTopic = (e) => {
-    e.preventDefault();
-    if (editTopic) grammarTopicsStore.update(editTopic.id, topicForm);
-    else grammarTopicsStore.add({ id: uuid(), ...topicForm });
-    refresh(); setShowTopicForm(false); setEditTopic(null);
-  };
-  const deleteTopic = (id) => { if (confirm('Xóa chủ đề?')) { grammarTopicsStore.remove(id); refresh(); if (activeTopic?.id === id) setActiveTopic(null); } };
+  useEffect(() => { refresh().finally(() => setLoading(false)); }, [refresh]);
 
-  const savePoint = (e) => {
+  const saveTopic = async (e) => {
     e.preventDefault();
-    if (editPoint) grammarPointsStore.update(editPoint.id, pointForm);
-    else grammarPointsStore.add({ id: uuid(), topicId: activeTopic.id, learned: false, ...pointForm });
-    refresh(); setShowPointForm(false); setEditPoint(null); setPointForm(blankPoint);
+    if (editTopic) await grammarService.updateTopic(editTopic.id, topicForm);
+    else await grammarService.createTopic({ id: uuid(), ...topicForm });
+    await refresh(); setShowTopicForm(false); setEditTopic(null);
   };
-  const deletePoint = (id) => { if (confirm('Xóa ngữ pháp?')) { grammarPointsStore.remove(id); refresh(); } };
+  const deleteTopic = async (id) => { if (confirm('Xóa chủ đề?')) { await grammarService.removeTopic(id); await refresh(); if (activeTopic?.id === id) setActiveTopic(null); } };
+
+  const savePoint = async (e) => {
+    e.preventDefault();
+    if (editPoint) await grammarService.updatePoint(editPoint.id, pointForm);
+    else await grammarService.createPoint({ id: uuid(), topicId: activeTopic.id, learned: false, ...pointForm });
+    await refresh(); setShowPointForm(false); setEditPoint(null); setPointForm(blankPoint);
+  };
+  const deletePoint = async (id) => { if (confirm('Xóa ngữ pháp?')) { await grammarService.removePoint(id); await refresh(); } };
+
+  if (loading) return <LoadingSkeleton type="cards" count={4} />;
 
   const topicPoints = activeTopic ? points.filter(p => p.topicId === activeTopic.id) : points;
   const filtered = topicPoints.filter(p => !search || [p.pattern, p.explanation, p.vietnameseExplanation].some(f => f?.toLowerCase().includes(search.toLowerCase())));

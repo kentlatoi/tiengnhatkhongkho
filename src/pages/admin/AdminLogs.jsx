@@ -1,12 +1,18 @@
-import { useState } from 'react';
-import { activityLogsStore } from '../../store/localStorage';
+import { useState, useEffect } from 'react';
+import activityLogService from '../../services/activityLogService';
 import SearchBar from '../../components/ui/SearchBar';
+import LoadingSkeleton from '../../components/ui/LoadingSkeleton';
 import { motion } from 'framer-motion';
 
 export default function AdminLogs() {
-  const [logs, setLogs] = useState(() => activityLogsStore.getAll());
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+
+  useEffect(() => {
+    activityLogService.getAll().then(l => { setLogs(l); setLoading(false); });
+  }, []);
 
   const filtered = logs.filter(l => {
     if (roleFilter !== 'all' && l.role !== roleFilter) return false;
@@ -14,8 +20,17 @@ export default function AdminLogs() {
     return true;
   });
 
+  const handleClear = async () => {
+    if (confirm('Xóa toàn bộ nhật ký?')) {
+      await activityLogService.clear();
+      setLogs([]);
+    }
+  };
+
   const roleLabels = { admin: 'Admin', teacher: 'Giáo viên', student: 'Học sinh' };
   const roleColors = { admin: 'bg-amber-500', teacher: 'bg-blue-500', student: 'bg-primary-500' };
+
+  if (loading) return <LoadingSkeleton type="table" />;
 
   return (
     <div>
@@ -24,7 +39,7 @@ export default function AdminLogs() {
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Nhật ký hoạt động 📋</h1>
           <p className="text-surface-500 text-sm">{logs.length} hoạt động</p>
         </div>
-        <button onClick={() => { if (confirm('Xóa toàn bộ nhật ký?')) { activityLogsStore.clear(); setLogs([]); }}} className="btn-danger text-sm">Xóa tất cả</button>
+        <button onClick={handleClear} className="btn-danger text-sm">Xóa tất cả</button>
       </motion.div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
