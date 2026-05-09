@@ -1,0 +1,149 @@
+import { useState, useCallback } from 'react';
+import { vocabTopicsStore, vocabItemsStore } from '../../store/localStorage';
+import { useAuth } from '../../contexts/AuthContext';
+import Modal from '../../components/ui/Modal';
+import SearchBar from '../../components/ui/SearchBar';
+import EmptyState from '../../components/ui/EmptyState';
+import { motion, AnimatePresence } from 'framer-motion';
+import { v4 as uuid } from 'uuid';
+
+export default function TeacherVocabulary() {
+  const { isTeacher } = useAuth();
+  const [topics, setTopics] = useState(() => vocabTopicsStore.getAll());
+  const [items, setItems] = useState(() => vocabItemsStore.getAll());
+  const [activeTopic, setActiveTopic] = useState(null);
+  const [search, setSearch] = useState('');
+  const [showTopicForm, setShowTopicForm] = useState(false);
+  const [showItemForm, setShowItemForm] = useState(false);
+  const [editTopic, setEditTopic] = useState(null);
+  const [editItem, setEditItem] = useState(null);
+  const [topicForm, setTopicForm] = useState({ title: '', description: '' });
+  const blankItem = { japanese: '', hiragana: '', romaji: '', vietnamese: '', english: '', example: '' };
+  const [itemForm, setItemForm] = useState(blankItem);
+
+  const refresh = useCallback(() => { setTopics(vocabTopicsStore.getAll()); setItems(vocabItemsStore.getAll()); }, []);
+
+  const saveTopic = (e) => {
+    e.preventDefault();
+    if (editTopic) vocabTopicsStore.update(editTopic.id, topicForm);
+    else vocabTopicsStore.add({ id: uuid(), ...topicForm });
+    refresh(); setShowTopicForm(false); setEditTopic(null);
+  };
+
+  const deleteTopic = (id) => { if (confirm('Xóa chủ đề này?')) { vocabTopicsStore.remove(id); refresh(); if (activeTopic?.id === id) setActiveTopic(null); } };
+
+  const saveItem = (e) => {
+    e.preventDefault();
+    if (editItem) vocabItemsStore.update(editItem.id, itemForm);
+    else vocabItemsStore.add({ id: uuid(), topicId: activeTopic.id, learned: false, ...itemForm });
+    refresh(); setShowItemForm(false); setEditItem(null); setItemForm(blankItem);
+  };
+
+  const deleteItem = (id) => { if (confirm('Xóa từ vựng này?')) { vocabItemsStore.remove(id); refresh(); } };
+
+  const topicItems = activeTopic ? items.filter(i => i.topicId === activeTopic.id) : items;
+  const filtered = topicItems.filter(i => !search || [i.japanese, i.hiragana, i.romaji, i.vietnamese, i.english].some(f => f?.toLowerCase().includes(search.toLowerCase())));
+
+  return (
+    <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Từ vựng N5 📝</h1>
+          <p className="text-surface-500 text-sm">{items.length} từ · {topics.length} chủ đề</p>
+        </div>
+        {isTeacher && (
+          <button onClick={() => { setEditTopic(null); setTopicForm({ title: '', description: '' }); setShowTopicForm(true); }}
+            className="btn-primary">＋ Thêm chủ đề</button>
+        )}
+      </div>
+
+      <div className="mb-6">
+        <SearchBar value={search} onChange={setSearch} placeholder="Tìm từ vựng..." />
+      </div>
+
+      {/* Topic chips */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        <button onClick={() => setActiveTopic(null)}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer ${!activeTopic ? 'bg-primary-500 text-white' : 'bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400 hover:bg-surface-200'}`}>
+          Tất cả
+        </button>
+        {topics.map(t => (
+          <div key={t.id} className="flex items-center gap-1">
+            <button onClick={() => setActiveTopic(t)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer ${activeTopic?.id === t.id ? 'bg-primary-500 text-white' : 'bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400 hover:bg-surface-200'}`}>
+              {t.title}
+            </button>
+            {isTeacher && (
+              <>
+                <button onClick={() => { setEditTopic(t); setTopicForm({ title: t.title, description: t.description }); setShowTopicForm(true); }}
+                  className="text-xs text-surface-400 hover:text-surface-600 cursor-pointer">✏️</button>
+                <button onClick={() => deleteTopic(t.id)} className="text-xs text-surface-400 hover:text-sakura-500 cursor-pointer">✕</button>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {isTeacher && activeTopic && (
+        <button onClick={() => { setEditItem(null); setItemForm(blankItem); setShowItemForm(true); }}
+          className="btn-secondary mb-4 text-sm">＋ Thêm từ vựng vào "{activeTopic.title}"</button>
+      )}
+
+      {filtered.length === 0 ? (
+        <EmptyState icon="📝" title="Chưa có từ vựng" description="Thêm từ vựng đầu tiên." />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filtered.map((item, i) => (
+            <motion.div key={item.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+              className="glass-card">
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <p className="text-3xl font-bold text-surface-900 dark:text-white font-jp">{item.japanese}</p>
+                  <p className="text-primary-600 dark:text-primary-400 font-medium">{item.hiragana}</p>
+                </div>
+                {isTeacher && (
+                  <div className="flex gap-1">
+                    <button onClick={() => { setEditItem(item); setItemForm(item); setShowItemForm(true); }} className="btn-ghost text-xs">✏️</button>
+                    <button onClick={() => deleteItem(item.id)} className="btn-ghost text-xs text-sakura-500">🗑️</button>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-surface-400 mb-2">{item.romaji}</p>
+              <div className="space-y-1 text-sm">
+                <p className="text-surface-700 dark:text-surface-300">🇻🇳 {item.vietnamese}</p>
+                <p className="text-surface-500">🇺🇸 {item.english}</p>
+                {item.example && <p className="text-xs text-surface-400 mt-2 italic">例: {item.example}</p>}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* Topic Form */}
+      <Modal isOpen={showTopicForm} onClose={() => setShowTopicForm(false)} title={editTopic ? 'Sửa chủ đề' : 'Thêm chủ đề'}>
+        <form onSubmit={saveTopic} className="space-y-4">
+          <div><label className="input-label">Tên chủ đề</label><input value={topicForm.title} onChange={e => setTopicForm(f => ({ ...f, title: e.target.value }))} required className="input" /></div>
+          <div><label className="input-label">Mô tả</label><input value={topicForm.description} onChange={e => setTopicForm(f => ({ ...f, description: e.target.value }))} className="input" /></div>
+          <div className="flex gap-3"><button type="button" onClick={() => setShowTopicForm(false)} className="btn-secondary flex-1">Hủy</button><button type="submit" className="btn-primary flex-1">Lưu</button></div>
+        </form>
+      </Modal>
+
+      {/* Item Form */}
+      <Modal isOpen={showItemForm} onClose={() => setShowItemForm(false)} title={editItem ? 'Sửa từ vựng' : 'Thêm từ vựng'}>
+        <form onSubmit={saveItem} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div><label className="input-label">Kanji</label><input value={itemForm.japanese} onChange={e => setItemForm(f => ({ ...f, japanese: e.target.value }))} required className="input" /></div>
+            <div><label className="input-label">Hiragana</label><input value={itemForm.hiragana} onChange={e => setItemForm(f => ({ ...f, hiragana: e.target.value }))} className="input" /></div>
+          </div>
+          <div><label className="input-label">Romaji</label><input value={itemForm.romaji} onChange={e => setItemForm(f => ({ ...f, romaji: e.target.value }))} className="input" /></div>
+          <div className="grid grid-cols-2 gap-4">
+            <div><label className="input-label">Tiếng Việt</label><input value={itemForm.vietnamese} onChange={e => setItemForm(f => ({ ...f, vietnamese: e.target.value }))} className="input" /></div>
+            <div><label className="input-label">English</label><input value={itemForm.english} onChange={e => setItemForm(f => ({ ...f, english: e.target.value }))} className="input" /></div>
+          </div>
+          <div><label className="input-label">Ví dụ</label><input value={itemForm.example} onChange={e => setItemForm(f => ({ ...f, example: e.target.value }))} className="input" /></div>
+          <div className="flex gap-3"><button type="button" onClick={() => setShowItemForm(false)} className="btn-secondary flex-1">Hủy</button><button type="submit" className="btn-primary flex-1">Lưu</button></div>
+        </form>
+      </Modal>
+    </div>
+  );
+}
