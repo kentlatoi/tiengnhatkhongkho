@@ -8,9 +8,15 @@ import { mapProfile } from './authService';
 const userService = {
   getAll: async () => {
     if (isSupabase()) {
+      console.log('[userService] 🔄 Loading profiles from Supabase...');
       const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data || []).map(mapProfile);
+      if (error) {
+        console.error('[userService] ❌ Supabase profiles load error:', error);
+        throw error;
+      }
+      const mapped = (data || []).map(mapProfile);
+      console.log('[userService] ✅ Loaded', mapped.length, 'profiles');
+      return mapped;
     }
     return usersStore.getAll();
   },

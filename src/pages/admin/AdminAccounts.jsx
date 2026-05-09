@@ -22,17 +22,26 @@ export default function AdminAccounts() {
   const [editUser, setEditUser] = useState(null);
   const [showDelete, setShowDelete] = useState(null);
   const [showDetail, setShowDetail] = useState(null);
-  const [error, setError] = useState('');
-
-  const blank = { name: '', email: '', password: '', role: 'student', phone: '', birthday: '', bio: '' };
-  const [form, setForm] = useState(blank);
+  const [fetchError, setFetchError] = useState('');
 
   const refresh = useCallback(async () => {
-    const [u, c] = await Promise.all([userService.getAll(), classService.getAll()]);
-    setUsers(u); setClasses(c);
+    setFetchError('');
+    try {
+      console.log('[AdminAccounts] 🔄 Loading users...');
+      const [u, c] = await Promise.all([userService.getAll(), classService.getAll()]);
+      console.log('[AdminAccounts] ✅ Loaded', u.length, 'users,', c.length, 'classes');
+      setUsers(u); setClasses(c);
+    } catch (err) {
+      console.error('[AdminAccounts] ❌ Failed to load users:', err);
+      setFetchError(err.message || 'Không thể tải danh sách tài khoản');
+    }
   }, []);
 
   useEffect(() => { refresh().finally(() => setLoading(false)); }, [refresh]);
+
+  const [error, setError] = useState('');
+  const blank = { name: '', email: '', password: '', role: 'student', phone: '', birthday: '', bio: '' };
+  const [form, setForm] = useState(blank);
 
   const filtered = users.filter(u => {
     if (roleFilter !== 'all' && u.role !== roleFilter) return false;
@@ -84,6 +93,13 @@ export default function AdminAccounts() {
         </motion.div>
         <button onClick={openCreate} className="btn-primary">+ Tạo tài khoản</button>
       </div>
+
+      {fetchError && (
+        <div className="mb-4 p-4 rounded-xl bg-sakura-500/10 border border-sakura-500/20 text-sakura-500 text-sm">
+          <p className="font-medium">❌ {fetchError}</p>
+          <button onClick={() => { setLoading(true); refresh().finally(() => setLoading(false)); }} className="mt-2 text-xs underline">Thử lại</button>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="flex-1"><SearchBar value={search} onChange={setSearch} placeholder="Tìm tên, email..." /></div>
