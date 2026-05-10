@@ -57,7 +57,7 @@ export default function Sidebar({ mobileOpen, onClose }) {
     <div className="flex flex-col h-full">
       <div className="px-6 py-5 border-b border-surface-200/50 dark:border-surface-700/50">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-lg shadow-lg shadow-primary-500/30">🎌</div>
+          <img src="/img/LogoCycle.png" alt="Logo" className="w-[56px] h-[56px] rounded-full object-cover object-center flex-shrink-0" />
           <div>
             <h1 className="text-lg font-bold text-surface-900 dark:text-white">JLPT学習</h1>
             <p className="text-xs text-surface-500">Japanese LMS</p>
