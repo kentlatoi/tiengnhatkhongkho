@@ -11,7 +11,10 @@ export default function AdminLogs() {
   const [roleFilter, setRoleFilter] = useState('all');
 
   useEffect(() => {
-    activityLogService.getAll().then(l => { setLogs(l); setLoading(false); });
+    activityLogService.getAll()
+      .then(l => setLogs(l))
+      .catch(err => { console.error('[AdminLogs] ❌ Load error:', err); setLogs([]); })
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = logs.filter(l => {

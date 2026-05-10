@@ -17,10 +17,16 @@ export default function StudentGrammar() {
 
   useEffect(() => {
     const load = async () => {
-      const [t, p] = await Promise.all([grammarService.getTopics(), grammarService.getAllPoints()]);
-      setTopics(t); setPoints(p);
-      try { const pr = JSON.parse(localStorage.getItem(`progress_${user.id}`) || '{}'); setLearnedGrammar(pr.learnedGrammar || []); } catch {}
-      setLoading(false);
+      try {
+        const [t, p] = await Promise.all([grammarService.getTopics(), grammarService.getAllPoints()]);
+        setTopics(t); setPoints(p);
+        try { const pr = JSON.parse(localStorage.getItem(`progress_${user.id}`) || '{}'); setLearnedGrammar(pr.learnedGrammar || []); } catch {}
+      } catch (err) {
+        console.error('[StudentGrammar] ❌ Load error:', err);
+        setTopics([]); setPoints([]);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, [user.id]);

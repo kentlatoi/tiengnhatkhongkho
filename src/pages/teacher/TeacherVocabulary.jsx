@@ -5,11 +5,13 @@ import Modal from '../../components/ui/Modal';
 import SearchBar from '../../components/ui/SearchBar';
 import EmptyState from '../../components/ui/EmptyState';
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton';
+import { useToast } from '../../components/ui/Toast';
 import { motion } from 'framer-motion';
 import { v4 as uuid } from 'uuid';
 
 export default function TeacherVocabulary() {
-  const { isTeacher } = useAuth();
+  const { user, isTeacher } = useAuth();
+  const toast = useToast();
   const [topics, setTopics] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +24,8 @@ export default function TeacherVocabulary() {
   const [topicForm, setTopicForm] = useState({ title: '', description: '' });
   const blankItem = { japanese: '', hiragana: '', romaji: '', vietnamese: '', english: '', example: '' };
   const [itemForm, setItemForm] = useState(blankItem);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
   const refresh = useCallback(async () => {
     const [t, i] = await Promise.all([vocabularyService.getTopics(), vocabularyService.getAllItems()]);
@@ -32,9 +36,19 @@ export default function TeacherVocabulary() {
 
   const saveTopic = async (e) => {
     e.preventDefault();
-    if (editTopic) await vocabularyService.updateTopic(editTopic.id, topicForm);
-    else await vocabularyService.createTopic({ id: uuid(), ...topicForm });
-    await refresh(); setShowTopicForm(false); setEditTopic(null);
+    setSaving(true);
+    setError(null);
+    try {
+      if (editTopic) await vocabularyService.updateTopic(editTopic.id, topicForm);
+      else await vocabularyService.createTopic({ id: uuid(), createdBy: user?.id, ...topicForm });
+      await refresh(); setShowTopicForm(false); setEditTopic(null);
+      toast?.('Đã lưu chủ đề');
+    } catch (err) {
+      console.error('[VocabTopic] Supabase error:', err);
+      setError(err.message || 'Lưu thất bại');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const deleteTopic = async (id) => {
@@ -47,9 +61,19 @@ export default function TeacherVocabulary() {
 
   const saveItem = async (e) => {
     e.preventDefault();
-    if (editItem) await vocabularyService.updateItem(editItem.id, itemForm);
-    else await vocabularyService.createItem({ id: uuid(), topicId: activeTopic.id, learned: false, ...itemForm });
-    await refresh(); setShowItemForm(false); setEditItem(null); setItemForm(blankItem);
+    setSaving(true);
+    setError(null);
+    try {
+      if (editItem) await vocabularyService.updateItem(editItem.id, itemForm);
+      else await vocabularyService.createItem({ id: uuid(), topicId: activeTopic.id, learned: false, ...itemForm });
+      await refresh(); setShowItemForm(false); setEditItem(null); setItemForm(blankItem);
+      toast?.('Đã lưu từ vựng');
+    } catch (err) {
+      console.error('[VocabItem] Supabase error:', err);
+      setError(err.message || 'Lưu thất bại');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const deleteItem = async (id) => {
@@ -132,18 +156,18 @@ export default function TeacherVocabulary() {
         </div>
       )}
 
-      {/* Topic Form */}
       <Modal isOpen={showTopicForm} onClose={() => setShowTopicForm(false)} title={editTopic ? 'Sửa chủ đề' : 'Thêm chủ đề'}>
         <form onSubmit={saveTopic} className="space-y-4">
+          {error && <div className="text-sm text-sakura-600 bg-sakura-50 dark:bg-sakura-900/20 p-3 rounded-xl border border-sakura-200 dark:border-sakura-800">{error}</div>}
           <div><label className="input-label">Tên chủ đề</label><input value={topicForm.title} onChange={e => setTopicForm(f => ({ ...f, title: e.target.value }))} required className="input" /></div>
           <div><label className="input-label">Mô tả</label><input value={topicForm.description} onChange={e => setTopicForm(f => ({ ...f, description: e.target.value }))} className="input" /></div>
-          <div className="flex gap-3"><button type="button" onClick={() => setShowTopicForm(false)} className="btn-secondary flex-1">Hủy</button><button type="submit" className="btn-primary flex-1">Lưu</button></div>
+          <div className="flex gap-3"><button type="button" onClick={() => setShowTopicForm(false)} className="btn-secondary flex-1">Hủy</button><button type="submit" disabled={saving} className="btn-primary flex-1">{saving ? 'Đang lưu...' : 'Lưu'}</button></div>
         </form>
       </Modal>
 
-      {/* Item Form */}
       <Modal isOpen={showItemForm} onClose={() => setShowItemForm(false)} title={editItem ? 'Sửa từ vựng' : 'Thêm từ vựng'}>
         <form onSubmit={saveItem} className="space-y-4">
+          {error && <div className="text-sm text-sakura-600 bg-sakura-50 dark:bg-sakura-900/20 p-3 rounded-xl border border-sakura-200 dark:border-sakura-800">{error}</div>}
           <div className="grid grid-cols-2 gap-4">
             <div><label className="input-label">Kanji</label><input value={itemForm.japanese} onChange={e => setItemForm(f => ({ ...f, japanese: e.target.value }))} required className="input" /></div>
             <div><label className="input-label">Hiragana</label><input value={itemForm.hiragana} onChange={e => setItemForm(f => ({ ...f, hiragana: e.target.value }))} className="input" /></div>
@@ -154,7 +178,7 @@ export default function TeacherVocabulary() {
             <div><label className="input-label">English</label><input value={itemForm.english} onChange={e => setItemForm(f => ({ ...f, english: e.target.value }))} className="input" /></div>
           </div>
           <div><label className="input-label">Ví dụ</label><input value={itemForm.example} onChange={e => setItemForm(f => ({ ...f, example: e.target.value }))} className="input" /></div>
-          <div className="flex gap-3"><button type="button" onClick={() => setShowItemForm(false)} className="btn-secondary flex-1">Hủy</button><button type="submit" className="btn-primary flex-1">Lưu</button></div>
+          <div className="flex gap-3"><button type="button" onClick={() => setShowItemForm(false)} className="btn-secondary flex-1">Hủy</button><button type="submit" disabled={saving} className="btn-primary flex-1">{saving ? 'Đang lưu...' : 'Lưu'}</button></div>
         </form>
       </Modal>
     </div>

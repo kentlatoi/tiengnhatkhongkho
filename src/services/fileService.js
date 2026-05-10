@@ -42,8 +42,7 @@ export function isVideoFile(name) { return VIDEO_TYPES.includes(getFileExt(name)
 export function isDocumentFile(name) { return DOCUMENT_TYPES.includes(getFileExt(name)); }
 
 export function canPreview(file) {
-  if (file.download_url || file.downloadUrl) return ['pdf', 'jpg', 'jpeg', 'png', 'webp'].includes(file.type || getFileExt(file.name || file.file_name));
-  return file.dataUrl && ['pdf', 'jpg', 'jpeg', 'png', 'webp'].includes(file.type || getFileExt(file.name));
+  return ['pdf', 'jpg', 'jpeg', 'png', 'webp'].includes(file.type || getFileExt(file.name || file.file_name));
 }
 
 /**
@@ -55,6 +54,7 @@ export function fileToMeta(file) {
       id: uuid(), name: file.name, size: file.size,
       type: getFileExt(file.name), mime: file.type,
       uploadedAt: new Date().toISOString(),
+      rawFile: file,
     };
     const reader = new FileReader();
     reader.onload = () => { meta.dataUrl = reader.result; resolve(meta); };
@@ -76,14 +76,11 @@ export async function uploadToSupabase(file, { classId, sessionId, uploadedBy, c
   const { error: uploadErr } = await supabase.storage.from(bucket).upload(storagePath, file);
   if (uploadErr) throw uploadErr;
 
-  // Get URL
+  // Get URL (only store public urls, keep private empty to fetch dynamically)
   let downloadUrl = '';
   if (['avatars', 'class-images'].includes(bucket)) {
     const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);
     downloadUrl = data.publicUrl;
-  } else {
-    const { data } = await supabase.storage.from(bucket).createSignedUrl(storagePath, 3600);
-    downloadUrl = data?.signedUrl || '';
   }
 
   // Insert metadata row
@@ -140,6 +137,34 @@ export async function getSignedUrl(bucket, path, expiresIn = 3600) {
   if (!isSupabase()) return '';
   const { data } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn);
   return data?.signedUrl || '';
+}
+
+export async function getFreshFileUrl(file) {
+  if (!file) throw new Error('Missing file');
+  if (file.storagePath || file.storage_path) {
+    const bucket = file.bucketName || file.bucket_name || (file.category === 'listening' ? 'listening-files' : 'lesson-files');
+    const path = file.storagePath || file.storage_path;
+    if (['avatars', 'class-images'].includes(bucket)) {
+      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+      return data.publicUrl;
+    }
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 10);
+    if (error) throw error;
+    return data.signedUrl;
+  }
+  if (file.downloadUrl || file.download_url) return file.downloadUrl || file.download_url;
+  if (file.dataUrl) return file.dataUrl;
+  throw new Error('Missing file path');
+}
+
+export async function openFile(file, toast) {
+  try {
+    const url = await getFreshFileUrl(file);
+    window.open(url, '_blank', 'noopener,noreferrer');
+  } catch (err) {
+    console.error('Open file failed:', err);
+    if (toast) toast(err.message || 'Không thể mở file', 'error');
+  }
 }
 
 /**

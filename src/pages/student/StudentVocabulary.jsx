@@ -18,11 +18,16 @@ export default function StudentVocabulary() {
 
   useEffect(() => {
     const load = async () => {
-      const [t, i] = await Promise.all([vocabularyService.getTopics(), vocabularyService.getAllItems()]);
-      setTopics(t); setItems(i);
-      // Try load learned state from localStorage
-      try { const p = JSON.parse(localStorage.getItem(`progress_${user.id}`) || '{}'); setLearnedVocab(p.learnedVocab || []); } catch {}
-      setLoading(false);
+      try {
+        const [t, i] = await Promise.all([vocabularyService.getTopics(), vocabularyService.getAllItems()]);
+        setTopics(t); setItems(i);
+        try { const p = JSON.parse(localStorage.getItem(`progress_${user.id}`) || '{}'); setLearnedVocab(p.learnedVocab || []); } catch {}
+      } catch (err) {
+        console.error('[StudentVocabulary] ❌ Load error:', err);
+        setTopics([]); setItems([]);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, [user.id]);

@@ -30,29 +30,39 @@ function mapEvent(e) {
   };
 }
 
+function uuidOrNull(value) {
+  return value && String(value).trim() !== '' ? value : null;
+}
+
 function toDb(data) {
   const d = {};
-  if (data.classId !== undefined) d.class_id = data.classId;
+  if (data.classId !== undefined) d.class_id = uuidOrNull(data.classId);
   if (data.className !== undefined) d.class_name = data.className;
-  if (data.teacherId !== undefined) d.teacher_id = data.teacherId;
+  if (data.teacherId !== undefined) d.teacher_id = uuidOrNull(data.teacherId);
   if (data.teacherName !== undefined) d.teacher_name = data.teacherName;
-  if (data.lessonSessionId !== undefined) d.lesson_session_id = data.lessonSessionId;
+  if (data.lessonSessionId !== undefined) d.lesson_session_id = uuidOrNull(data.lessonSessionId);
   if (data.title !== undefined) d.title = data.title;
   if (data.date !== undefined) d.date = data.date;
-  if (data.startTime !== undefined) d.start_time = data.startTime;
-  if (data.endTime !== undefined) d.end_time = data.endTime;
+  if (data.startTime !== undefined) d.start_time = data.startTime || null;
+  if (data.endTime !== undefined) d.end_time = data.endTime || null;
   if (data.content !== undefined) d.content = data.content;
   if (data.homework !== undefined) d.homework = data.homework;
   if (data.location !== undefined) d.location = data.location;
   if (data.meetingLink !== undefined) d.meeting_link = data.meetingLink;
-  if (data.createdBy !== undefined) d.created_by = data.createdBy;
+  if (data.createdBy !== undefined) d.created_by = uuidOrNull(data.createdBy);
   return d;
 }
 
 const calendarService = {
   getAll: async () => {
     if (isSupabase()) {
-      const { data } = await supabase.from('calendar_events').select('*').order('date', { ascending: false });
+      console.log('[calendar] 🔄 Loading all events...');
+      const { data, error } = await supabase.from('calendar_events').select('*').order('date', { ascending: false });
+      if (error) {
+        console.error('[calendar] ❌ Load error:', error);
+        throw error;
+      }
+      console.log('[calendar] ✅ Loaded', (data || []).length, 'events');
       return (data || []).map(mapEvent);
     }
     return calendarStore.getAll();
@@ -97,10 +107,15 @@ const calendarService = {
   create: async (eventData, user) => {
     if (isSupabase()) {
       const dbData = toDb(eventData);
-      dbData.created_by = user?.id || '';
-      const { data, error } = await supabase.from('calendar_events').insert(dbData).select().single();
-      if (error) throw error;
-      if (user) await activityLogService.log(user, `Tạo sự kiện lịch: ${eventData.title}`);
+      dbData.created_by = uuidOrNull(user?.id);
+      console.log('[CalendarEvent] payload:', dbData);
+      const { data, error } = await supabase.from('calendar_events').insert(dbData).select('*').single();
+      if (error) {
+        console.error('[CalendarEvent] save error:', error);
+        throw error;
+      }
+      console.log('[calendar] ✅ Event created:', data.id);
+      if (user) activityLogService.log(user, `Tạo sự kiện lịch: ${eventData.title}`).catch(() => {});
       return mapEvent(data);
     }
     const event = { ...eventData, id: eventData.id || 'evt-' + Date.now(), createdBy: user?.id || '', createdAt: new Date().toISOString() };
@@ -111,9 +126,14 @@ const calendarService = {
 
   update: async (id, data, user) => {
     if (isSupabase()) {
-      const { error } = await supabase.from('calendar_events').update(toDb(data)).eq('id', id);
-      if (error) throw error;
-      if (user) await activityLogService.log(user, `Cập nhật sự kiện lịch: ${data.title || id}`);
+      const dbData = toDb(data);
+      console.log('[CalendarEvent] update payload:', dbData);
+      const { error } = await supabase.from('calendar_events').update(dbData).eq('id', id);
+      if (error) {
+        console.error('[CalendarEvent] update error:', error);
+        throw error;
+      }
+      if (user) activityLogService.log(user, `Cập nhật sự kiện lịch: ${data.title || id}`).catch(() => {});
       return { id, ...data };
     }
     calendarStore.update(id, { ...data, updatedAt: new Date().toISOString() });

@@ -64,12 +64,17 @@ export default function CalendarPage() {
   const days = getDaysInMonth(year, month);
 
   const loadData = useCallback(async () => {
-    const [evts, all] = await Promise.all([calendarService.getAll(), classService.getAll()]);
-    setEvents(evts); setAllClasses(all);
-    if (isAdmin) { setClasses(all); const t = await userService.getTeachers(); setTeachers(t); }
-    else if (isTeacher) { const c = await classService.getByTeacher(user.id); setClasses(c); }
-    else { const c = await classService.getByStudent(user.id); setClasses(c); }
-    setLoading(false);
+    try {
+      const [evts, all] = await Promise.all([calendarService.getAll(), classService.getAll()]);
+      setEvents(evts); setAllClasses(all);
+      if (isAdmin) { setClasses(all); const t = await userService.getTeachers(); setTeachers(t); }
+      else if (isTeacher) { const c = await classService.getByTeacher(user.id); setClasses(c); }
+      else { const c = await classService.getByStudent(user.id); setClasses(c); }
+    } catch (err) {
+      console.error('[Calendar] ❌ Load error:', err);
+    } finally {
+      setLoading(false);
+    }
   }, [isAdmin, isTeacher, user?.id]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -138,35 +143,43 @@ export default function CalendarPage() {
 
   const saveEvent = async (e) => {
     e.preventDefault();
-    const cls = allClasses.find(c => c.id === form.classId);
-    const eventData = {
-      ...form,
-      className: cls?.name || '',
-      teacherId: isTeacher ? user.id : (cls?.teacherId || ''),
-      teacherName: isTeacher ? user.name : (cls?.teacherName || ''),
-      time: form.startTime,
-      notes: form.content,
-    };
-    if (editEvt) {
-      await calendarService.update(editEvt.id, eventData, user);
-      toast('Đã cập nhật sự kiện');
-    } else {
-      await calendarService.create({ id: uuid(), ...eventData }, user);
-      toast('Đã thêm sự kiện mới');
+    try {
+      const cls = allClasses.find(c => c.id === form.classId);
+      const eventData = {
+        ...form,
+        className: cls?.name || '',
+        teacherId: isTeacher ? user.id : (cls?.teacherId || ''),
+        teacherName: isTeacher ? user.name : (cls?.teacherName || ''),
+        time: form.startTime,
+        notes: form.content,
+      };
+      if (editEvt) {
+        await calendarService.update(editEvt.id, eventData, user);
+        toast('Đã cập nhật sự kiện');
+      } else {
+        await calendarService.create({ id: uuid(), ...eventData }, user);
+        toast('Đã thêm sự kiện mới');
+      }
+      await loadData();
+      setShowForm(false);
+    } catch (err) {
+      console.error(err);
+      toast?.(err.message || 'Lỗi khi lưu sự kiện', 'error');
     }
-    const evts = await calendarService.getAll();
-    setEvents(evts);
-    setShowForm(false);
   };
 
   const deleteEvent = async (id) => {
-    await calendarService.remove(id, user);
-    const evts = await calendarService.getAll();
-    setEvents(evts);
-    setSelectedDate(null);
-    setViewEvt(null);
-    setConfirmDelete(null);
-    toast('Đã xóa sự kiện');
+    try {
+      await calendarService.remove(id, user);
+      await loadData();
+      setSelectedDate(null);
+      setViewEvt(null);
+      setConfirmDelete(null);
+      toast('Đã xóa sự kiện');
+    } catch (err) {
+      console.error(err);
+      toast?.(err.message || 'Lỗi khi xóa sự kiện', 'error');
+    }
   };
 
   const handleViewEvent = (evt) => {

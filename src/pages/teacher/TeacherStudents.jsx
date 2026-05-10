@@ -8,7 +8,10 @@ export default function TeacherStudents() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    userService.getStudents().then(s => { setStudents(s); setLoading(false); });
+    userService.getStudents()
+      .then(s => setStudents(s))
+      .catch(err => { console.error('[TeacherStudents] ❌ Load error:', err); setStudents([]); })
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <LoadingSkeleton type="cards" count={6} />;

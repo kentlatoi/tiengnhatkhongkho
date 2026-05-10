@@ -8,6 +8,7 @@ import vocabularyService from '../../services/vocabularyService';
 import grammarService from '../../services/grammarService';
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton';
 import { motion } from 'framer-motion';
+import { getJapaneseGreeting } from '../../utils/greeting';
 
 export default function TeacherDashboard() {
   const { user } = useAuth();
@@ -16,16 +17,26 @@ export default function TeacherDashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const [classes, allSessions, students, vocab, grammar] = await Promise.all([
-        classService.getByTeacher(user.id),
-        sessionService.getAll(),
-        userService.getStudents(),
-        vocabularyService.getAllItems(),
-        grammarService.getAllPoints(),
-      ]);
-      const sessions = allSessions.filter(s => classes.some(c => c.id === s.classId));
-      setData({ classes, sessions, students, vocab, grammar });
-      setLoading(false);
+      try {
+        console.log('[TeacherDashboard] 🔄 Loading data...');
+        const results = await Promise.allSettled([
+          classService.getByTeacher(user.id),
+          sessionService.getAll(),
+          userService.getStudents(),
+          vocabularyService.getAllItems(),
+          grammarService.getAllPoints(),
+        ]);
+        const [classes, allSessions, students, vocab, grammar] = results.map(r => r.status === 'fulfilled' ? r.value : []);
+        results.forEach((r, i) => { if (r.status === 'rejected') console.error('[TeacherDashboard] ❌ Query', i, 'failed:', r.reason); });
+        const sessions = allSessions.filter(s => classes.some(c => c.id === s.classId));
+        console.log('[TeacherDashboard] ✅ Loaded:', classes.length, 'classes,', sessions.length, 'sessions,', students.length, 'students');
+        setData({ classes, sessions, students, vocab, grammar });
+      } catch (err) {
+        console.error('[TeacherDashboard] ❌ Load error:', err);
+        setData({ classes: [], sessions: [], students: [], vocab: [], grammar: [] });
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, [user.id]);
@@ -42,11 +53,14 @@ export default function TeacherDashboard() {
     { icon: '🎮', title: 'Hoạt động', value: sessions.reduce((a, s) => a + (s.quiz?.length || 0) + (s.flashcards?.length || 0), 0), subtitle: 'Quiz & Flashcard', color: 'sakura' },
   ];
 
+  const greeting = getJapaneseGreeting();
+  const displayName = user?.name || user?.full_name || 'Bạn';
+
   return (
     <div>
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
         <h1 className="text-3xl font-bold text-surface-900 dark:text-white">
-          おはよう、<span className="gradient-text">{user.name}</span> 👋
+          {greeting.text}、<span className="gradient-text">{displayName}</span> {greeting.emoji}
         </h1>
         <p className="text-surface-500 mt-1">Chào mừng quay lại! Đây là tổng quan hoạt động.</p>
       </motion.div>

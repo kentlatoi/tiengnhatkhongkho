@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import classService from '../../services/classService';
 import sessionService from '../../services/sessionService';
-import { fileToMeta, downloadFile, formatFileSize, getFileIcon, canPreview, AUDIO_ACCEPT, DOCUMENT_ACCEPT } from '../../services/fileService';
+import { fileToMeta, downloadFile, formatFileSize, getFileIcon, canPreview, AUDIO_ACCEPT, DOCUMENT_ACCEPT, uploadToSupabase, openFile, getFreshFileUrl } from '../../services/fileService';
+import { isSupabase } from '../../lib/supabaseClient';
 import activityLogService from '../../services/activityLogService';
 import Modal from '../../components/ui/Modal';
 import EmptyState from '../../components/ui/EmptyState';
@@ -11,6 +12,7 @@ import ConfirmModal from '../../components/ui/ConfirmModal';
 import AudioPlayer from '../../components/ui/AudioPlayer';
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton';
 import { useToast } from '../../components/ui/Toast';
+import QuizInteractive from '../../components/ui/QuizInteractive';
 import { motion, AnimatePresence } from 'framer-motion';
 import { v4 as uuid } from 'uuid';
 
@@ -33,16 +35,26 @@ export default function TeacherClassDetail() {
   const [form, setForm] = useState(blank);
 
   const refresh = useCallback(async () => {
-    const sess = await sessionService.getByClass(classId);
-    setSessions(sess);
+    try {
+      const sess = await sessionService.getByClass(classId);
+      setSessions(sess);
+    } catch (err) {
+      console.error('[ClassDetail] ❌ Sessions load error:', err);
+      setSessions([]);
+    }
   }, [classId]);
 
   useEffect(() => {
     const load = async () => {
-      const c = await classService.getById(classId);
-      setCls(c);
-      await refresh();
-      setLoading(false);
+      try {
+        const c = await classService.getById(classId);
+        setCls(c);
+        await refresh();
+      } catch (err) {
+        console.error('[ClassDetail] ❌ Load error:', err);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, [classId, refresh]);
@@ -53,20 +65,161 @@ export default function TeacherClassDetail() {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
+    console.log('[LessonSession] form before save:', form);
+    
+    // Debug logging lesson payload mapped locally roughly
+    const lessonPayload = {
+      class_id: classId,
+      teacher_id: user.id,
+      title: form.title || '',
+      date: form.date || null,
+      start_time: form.startTime || form.start_time || null,
+      end_time: form.endTime || form.end_time || null,
+      content_description: form.contentDescription || form.content || form.lessonContent || '',
+      homework: form.homework || '',
+      notes: form.notes || '',
+    };
+    console.log('[LessonSession] lesson payload:', lessonPayload);
+
     try {
+      let savedSession;
       if (editSess) {
-        await sessionService.update(editSess.id, form, user);
+        savedSession = await sessionService.update(editSess.id, form, user);
       } else {
-        await sessionService.create({ classId, order: sessions.length + 1, ...form }, user);
+        savedSession = await sessionService.create({ classId, order: sessions.length + 1, ...form }, user);
       }
-      await refresh(); setShowForm(false); setEditSess(null); setForm(blank);
+
+      if (isSupabase() && savedSession?.id) {
+        // Find existing files for this session to handle deletions
+        const { getFilesBySession, deleteSupabaseFile } = await import('../../services/fileService');
+        const existingFiles = await getFilesBySession(savedSession.id);
+        const currentFileIds = [...form.files, ...form.audioFiles].filter(f => !f.rawFile).map(f => f.id);
+        for (const ef of existingFiles) {
+          if (!currentFileIds.includes(ef.id)) {
+            await deleteSupabaseFile(ef.id);
+          }
+        }
+
+        // Upload new document files
+        for (const f of form.files) {
+          if (f.rawFile) {
+            await uploadToSupabase(f.rawFile, { classId, sessionId: savedSession.id, uploadedBy: user.id, category: 'document' });
+          }
+        }
+        // Upload new audio files
+        for (const f of form.audioFiles) {
+          if (f.rawFile) {
+            await uploadToSupabase(f.rawFile, { classId, sessionId: savedSession.id, uploadedBy: user.id, category: 'listening' });
+          }
+        }
+
+        // Save flashcards
+        console.log('[Session Save] formData.flashcards:', form.flashcards);
+        if (form.flashcards && form.flashcards.length > 0) {
+          const { supabase } = await import('../../lib/supabaseClient');
+          await supabase.from('flashcards').delete().eq('session_id', savedSession.id);
+          
+          const validFlashcards = form.flashcards.filter(fc => (fc.front || '').trim() && (fc.back || '').trim());
+          if (validFlashcards.length > 0) {
+            const flashcardRows = validFlashcards.map((card, idx) => ({
+              class_id: classId,
+              session_id: savedSession.id,
+              front: card.front || card.question || card.term || '',
+              back: card.back || card.answer || card.definition || '',
+              order_index: idx,
+              created_by: user?.id || null
+            }));
+
+            const { error: flashcardError } = await supabase.from('flashcards').insert(flashcardRows);
+            if (flashcardError) throw flashcardError;
+          }
+        } else {
+          const { supabase } = await import('../../lib/supabaseClient');
+          await supabase.from('flashcards').delete().eq('session_id', savedSession.id);
+        }
+
+        // Save quizzes
+        console.log('[Session Save] formData.quizQuestions:', form.quiz);
+        if (form.quiz && form.quiz.length > 0) {
+          const { supabase } = await import('../../lib/supabaseClient');
+          let { data: existingQuiz } = await supabase.from('quizzes').select('id').eq('session_id', savedSession.id).single();
+          let quizId = existingQuiz?.id;
+          
+          if (!quizId) {
+            const { data: newQuiz, error: quizError } = await supabase.from('quizzes').insert({
+              class_id: classId,
+              session_id: savedSession.id,
+              title: `Quiz cho session ${savedSession.id.substring(0,8)}`,
+              created_by: user?.id || null
+            }).select('id').single();
+            if (quizError) throw quizError;
+            if (newQuiz) quizId = newQuiz.id;
+          }
+
+          if (quizId) {
+            await supabase.from('quiz_questions').delete().eq('quiz_id', quizId);
+            const questionRows = form.quiz.map((q, idx) => ({
+              quiz_id: quizId,
+              question: q.question || q.text || '',
+              options: q.options || [],
+              correct_answer: parseInt(q.answer || q.correct_answer || q.correctAnswer || 0),
+              order_index: idx
+            }));
+            const { error: questionsError } = await supabase.from('quiz_questions').insert(questionRows);
+            if (questionsError) throw questionsError;
+          }
+        } else {
+          const { supabase } = await import('../../lib/supabaseClient');
+          const { data: existingQuiz } = await supabase.from('quizzes').select('id').eq('session_id', savedSession.id).single();
+          if (existingQuiz?.id) {
+            await supabase.from('quiz_questions').delete().eq('quiz_id', existingQuiz.id);
+            await supabase.from('quizzes').delete().eq('id', existingQuiz.id);
+          }
+        }
+        
+        console.log('[Session Save] savedSession:', savedSession);
+      }
+
+      await refresh(); 
+      setShowForm(false); setEditSess(null); setForm(blank);
+        // Immediately update activeSess if it's currently selected
+        if (activeSess || savedSession?.id) {
+          const fetchSessions = await sessionService.getByClass(classId);
+          setSessions(fetchSessions);
+          const updatedSess = fetchSessions.find(s => s.id === (activeSess?.id || savedSession.id));
+          if (updatedSess) setActiveSess(updatedSess);
+        }
+
+        console.log('[LessonSession] saved session:', savedSession);
+        console.log('[LessonSession] selected content:', savedSession.contentDescription);
+        console.log('[LessonSession] homework:', savedSession.homework);
+        console.log('[LessonSession] notes:', savedSession.notes);
+        console.log('[LessonSession] quiz questions to save:', form.quiz?.length || 0);
+        console.log('[LessonSession] flashcards to save:', form.flashcards?.length || 0);
+
       toast(editSess ? 'Đã cập nhật buổi học' : 'Đã thêm buổi học mới');
+    } catch (err) {
+      console.error(err);
+      toast(err.message || 'Lỗi khi lưu buổi học', 'error');
     } finally { setSaving(false); }
   };
 
   const handleEdit = (s) => {
     setEditSess(s);
-    setForm({ title:s.title, date:s.date, startTime:s.startTime||s.time||'19:00', endTime:s.endTime||'20:30', description:s.description, homework:s.homework||'', notes:s.notes||'', files:s.files||[], audioFiles:s.audioFiles||[], videoFiles:s.videoFiles||[], quiz:s.quiz||[], flashcards:s.flashcards||[] });
+    setForm({ 
+      title: s.title || '', 
+      date: s.date || '', 
+      startTime: s.startTime || s.start_time || '19:00', 
+      endTime: s.endTime || s.end_time || '20:30', 
+      contentDescription: s.contentDescription || s.content || s.description || '', 
+      homework: s.homework || '', 
+      notes: s.notes || '', 
+      files: s.files || [], 
+      audioFiles: s.audioFiles || [], 
+      videoFiles: s.videoFiles || [], 
+      quiz: s.quiz || [], 
+      flashcards: s.flashcards || [] 
+    });
     setShowForm(true);
   };
 
@@ -88,11 +241,11 @@ export default function TeacherClassDetail() {
 
   const tabs = [
     { key:'description', icon:'📋', label:'Nội dung' },
-    { key:'files', icon:'📁', label:'Files' },
-    { key:'listening', icon:'🎧', label:'Listening' },
+    { key:'files', icon:'📁', label:`Files (${activeSess?.files?.length || 0})` },
+    { key:'listening', icon:'🎧', label:`Listening (${activeSess?.audioFiles?.length || 0})` },
     { key:'homework', icon:'📝', label:'Bài tập' },
-    { key:'quiz', icon:'❓', label:'Quiz' },
-    { key:'flashcards', icon:'🃏', label:'Flashcard' },
+    { key:'quiz', icon:'❓', label:`Quiz (${activeSess?.quiz?.length || 0})` },
+    { key:'flashcards', icon:'🃏', label:`Flashcard (${activeSess?.flashcards?.length || 0})` },
   ];
 
   return (
@@ -100,10 +253,10 @@ export default function TeacherClassDetail() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
         <button onClick={() => navigate('/teacher/classes')} className="btn-ghost w-fit">← Quay lại</button>
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <span className="text-2xl sm:text-3xl">{cls.thumbnail}</span>
+          <span className="text-2xl sm:text-3xl">{cls.thumbnail || cls.icon || '🏫'}</span>
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-2xl font-bold text-surface-900 dark:text-white truncate">{cls.name}</h1>
-            <p className="text-surface-500 text-xs sm:text-sm">{cls.level} · {cls.schedule}</p>
+            <h1 className="text-lg sm:text-2xl font-bold text-surface-900 dark:text-white truncate">{cls.name || 'Lớp học'}</h1>
+            <p className="text-surface-500 text-xs sm:text-sm">{cls.level || 'Khác'} · {cls.schedule || 'Chưa có lịch'}</p>
           </div>
         </div>
       </div>
@@ -122,9 +275,11 @@ export default function TeacherClassDetail() {
                 className={`p-3 sm:p-4 rounded-xl cursor-pointer transition-all ${activeSess?.id===s.id ? 'bg-primary-50 dark:bg-primary-900/20 border-2 border-primary-500' : 'glass hover:shadow-md'}`}>
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm text-surface-900 dark:text-white">Session {String(s.order).padStart(2,'0')}</p>
-                    <p className="text-xs text-surface-500 truncate">{s.title}</p>
-                    <p className="text-xs text-surface-400 mt-0.5">📅 {s.date}</p>
+                    <p className="font-medium text-sm text-surface-900 dark:text-white">
+                      {`Session ${String(s.sessionNumber || i + 1).padStart(2, '0')}`}
+                    </p>
+                    <p className="text-xs text-surface-500 truncate">{s.title || 'Chưa có tiêu đề'}</p>
+                    <p className="text-xs text-surface-400 mt-0.5">📅 {s.date || 'Chưa có ngày'}</p>
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
                     <button onClick={e=>{e.stopPropagation();handleEdit(s);}} className="text-xs hover:bg-surface-100 dark:hover:bg-surface-700 w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer">✏️</button>
@@ -142,7 +297,7 @@ export default function TeacherClassDetail() {
           {activeSess ? (
             <div className="glass-card">
               <h3 className="text-base sm:text-xl font-bold text-surface-900 dark:text-white mb-4">
-                Session {String(activeSess.order).padStart(2,'0')} | {activeSess.title}
+                {`Session ${String(activeSess.sessionNumber || (sessions.findIndex(s => s.id === activeSess.id) + 1)).padStart(2, '0')}`} | {activeSess.title || 'Chưa có tiêu đề'}
               </h3>
               <div className="scrollable-tabs mb-4 sm:mb-6">
                 {tabs.map(t => (
@@ -156,7 +311,7 @@ export default function TeacherClassDetail() {
                 <motion.div key={activeTab} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}}>
                   {activeTab==='description' && (
                     <div>
-                      <p className="text-surface-700 dark:text-surface-300 whitespace-pre-wrap text-sm">{activeSess.description||'Chưa có nội dung.'}</p>
+                      <p className="text-surface-700 dark:text-surface-300 whitespace-pre-wrap text-sm">{activeSess.contentDescription || activeSess.content_description || activeSess.content || activeSess.description || 'Chưa có nội dung.'}</p>
                       {activeSess.notes && (
                         <div className="mt-4 p-3 sm:p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                           <p className="font-medium text-amber-700 dark:text-amber-400 text-sm mb-1">📌 Ghi chú</p>
@@ -191,8 +346,8 @@ export default function TeacherClassDetail() {
                       <p className="text-surface-700 dark:text-surface-300 whitespace-pre-wrap text-sm">{activeSess.homework||'Chưa có bài tập.'}</p>
                     </div>
                   )}
-                  {activeTab==='quiz' && <QuizDisplay quiz={activeSess.quiz||[]}/>}
-                  {activeTab==='flashcards' && <FlashcardDisplay flashcards={activeSess.flashcards||[]}/>}
+                  {activeTab==='quiz' && <QuizInteractive quiz={activeSess.quiz||[]} />}
+                  {activeTab==='flashcards' && <FlashcardDisplay flashcards={activeSess.flashcards||[]} />}
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -217,7 +372,7 @@ export default function TeacherClassDetail() {
             <div><label className="input-label">Giờ bắt đầu</label><input type="time" value={form.startTime} onChange={e=>setForm(f=>({...f,startTime:e.target.value}))} className="input"/></div>
             <div><label className="input-label">Giờ kết thúc</label><input type="time" value={form.endTime} onChange={e=>setForm(f=>({...f,endTime:e.target.value}))} className="input"/></div>
           </div>
-          <div><label className="input-label">Nội dung bài học</label><textarea value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} className="input h-24 resize-none" placeholder="Mô tả nội dung..."/></div>
+          <div><label className="input-label">Nội dung bài học</label><textarea value={form.contentDescription} onChange={e=>setForm(f=>({...f,contentDescription:e.target.value}))} className="input h-24 resize-none" placeholder="Mô tả nội dung..."/></div>
           <div><label className="input-label">Bài tập về nhà</label><textarea value={form.homework} onChange={e=>setForm(f=>({...f,homework:e.target.value}))} className="input h-20 resize-none" placeholder="Bài tập..."/></div>
 
           {/* Section 2: Document Files */}
@@ -321,31 +476,37 @@ function DetailFiles({files,toast}){
   return (
     <div className="space-y-2">
       {files.map(f=>(
-        <div key={f.id} onClick={()=>downloadFile(f,toast)} className="flex items-center gap-3 p-3 rounded-xl bg-surface-50 dark:bg-surface-800 hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer group">
-          {f.dataUrl&&['jpg','jpeg','png','webp'].includes(f.type)?<img src={f.dataUrl} alt="" className="w-10 h-10 rounded-lg object-cover"/>:
-           <div className="w-10 h-10 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xl">{getFileIcon(f.name)}</div>}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-surface-700 dark:text-surface-300 truncate">{f.name}</p>
-            <p className="text-xs text-surface-400">{formatFileSize(f.size)} · {(f.type||'').toUpperCase()}</p>
-          </div>
-          <span className="text-primary-500 opacity-0 group-hover:opacity-100 transition-opacity text-lg">⬇️</span>
-          {canPreview(f)&&<a href={f.dataUrl} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} className="px-3 py-1.5 rounded-lg bg-primary-50 dark:bg-primary-900/20 text-primary-600 text-xs font-medium">Xem ↗</a>}
-        </div>
+        <FileItem key={f.id} f={f} toast={toast} />
       ))}
     </div>
   );
 }
 
-function QuizDisplay({quiz}){
-  if(quiz.length===0) return <p className="text-surface-500 text-sm">Chưa có quiz.</p>;
-  return <div className="space-y-3">{quiz.map((q,i)=>(
-    <div key={q.id} className="p-3 sm:p-4 rounded-xl bg-surface-50 dark:bg-surface-800">
-      <p className="font-medium text-surface-900 dark:text-white mb-2 text-sm">Câu {i+1}: {q.question}</p>
-      <div className="grid grid-cols-2 gap-2">{q.options.map((o,oi)=>(
-        <div key={oi} className={`p-2 rounded-lg text-xs sm:text-sm ${oi===q.answer?'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 font-medium':'bg-white dark:bg-surface-700 text-surface-600 dark:text-surface-300'}`}>{String.fromCharCode(65+oi)}. {o}</div>
-      ))}</div>
+function FileItem({ f, toast }) {
+  const [thumb, setThumb] = useState(null);
+  const [imgError, setImgError] = useState(false);
+  const isImg = ['jpg','jpeg','png','webp'].includes(f.type || '');
+
+  useEffect(() => {
+    if (isImg && !imgError) {
+      getFreshFileUrl(f).then(url => setThumb(url)).catch(() => setImgError(true));
+    }
+  }, [f, isImg, imgError]);
+
+  return (
+    <div onClick={()=>openFile(f, toast)} className="flex items-center gap-3 p-3 rounded-xl bg-surface-50 dark:bg-surface-800 hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer group">
+      {isImg && thumb && !imgError ? (
+        <img src={thumb} onError={() => setImgError(true)} alt="" className="w-10 h-10 rounded-lg object-cover bg-surface-200 dark:bg-surface-700"/>
+      ) : (
+        <div className="w-10 h-10 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xl">{getFileIcon(f.name || 'file')}</div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-surface-700 dark:text-surface-300 truncate">{f.name || 'File'}</p>
+        <p className="text-xs text-surface-400">{formatFileSize(f.size)} {f.type ? `· ${f.type.toUpperCase()}` : ''}</p>
+      </div>
+      <span className="text-primary-500 opacity-0 group-hover:opacity-100 transition-opacity text-lg">↗</span>
     </div>
-  ))}</div>;
+  );
 }
 
 function FlashcardDisplay({flashcards}){

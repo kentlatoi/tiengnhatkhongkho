@@ -1,5 +1,8 @@
 /**
  * Activity Log Service — activity_logs table + localStorage fallback
+ *
+ * Supabase columns: user_id, user_name, user_role, action, timestamp/created_at
+ * Note: user_email may not exist in all schemas — we include it defensively
  */
 import { supabase, isSupabase } from '../lib/supabaseClient';
 import { activityLogsStore } from '../store/localStorage';
@@ -21,7 +24,7 @@ function mapLog(l) {
     userId: l.user_id || l.userId || '',
     userName: l.user_name || l.userName || '',
     userEmail: l.user_email || l.userEmail || '',
-    role: l.role || '',
+    role: l.user_role || l.role || '',
     action: l.action || '',
     timestamp: l.created_at || l.timestamp || '',
   };
@@ -30,7 +33,13 @@ function mapLog(l) {
 const activityLogService = {
   getAll: async () => {
     if (isSupabase()) {
-      const { data } = await supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(500);
+      console.log('[activityLog] 🔄 Loading logs...');
+      const { data, error } = await supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(500);
+      if (error) {
+        console.error('[activityLog] ❌ Load error:', error);
+        return []; // Don't throw — logs should never crash the app
+      }
+      console.log('[activityLog] ✅ Loaded', (data || []).length, 'logs');
       return (data || []).map(mapLog);
     }
     return activityLogsStore.getAll();
@@ -39,10 +48,20 @@ const activityLogService = {
   log: async (user, action, extra = {}) => {
     if (!user) return;
     if (isSupabase()) {
-      await supabase.from('activity_logs').insert({
-        user_id: user.id, user_name: user.name, user_email: user.email,
-        role: user.role, action, ...extra,
-      });
+      const payload = {
+        user_id: user.id,
+        user_name: user.name,
+        user_role: user.role,
+        action,
+      };
+      console.log('[activityLog] 📤 Logging:', action);
+      try {
+        const { error } = await supabase.from('activity_logs').insert(payload);
+        if (error) console.error('[activityLog] ❌ Insert error:', error);
+      } catch (err) {
+        // Fire-and-forget — never let logging crash the app
+        console.error('[activityLog] ❌ Insert failed:', err.message);
+      }
       return;
     }
     activityLogsStore.add({
@@ -53,7 +72,8 @@ const activityLogService = {
 
   clear: async () => {
     if (isSupabase()) {
-      await supabase.from('activity_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      const { error } = await supabase.from('activity_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) console.error('[activityLog] ❌ Clear error:', error);
       return;
     }
     activityLogsStore.clear();
@@ -62,7 +82,11 @@ const activityLogService = {
   getByRole: async (role) => {
     if (isSupabase()) {
       if (role === 'all') return activityLogService.getAll();
-      const { data } = await supabase.from('activity_logs').select('*').eq('role', role).order('created_at', { ascending: false }).limit(500);
+      const { data, error } = await supabase.from('activity_logs').select('*').eq('user_role', role).order('created_at', { ascending: false }).limit(500);
+      if (error) {
+        console.error('[activityLog] ❌ getByRole error:', error);
+        return [];
+      }
       return (data || []).map(mapLog);
     }
     if (role === 'all') return activityLogsStore.getAll();

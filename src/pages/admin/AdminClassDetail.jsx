@@ -32,23 +32,28 @@ export default function AdminClassDetail() {
   const [deleteClass, setDeleteClass] = useState(false);
 
   const loadData = useCallback(async () => {
-    const c = await classService.getById(classId);
-    if (!c) { setLoading(false); return; }
-    setCls(c);
-    const [sess, evts, studentIds] = await Promise.all([
-      sessionService.getByClass(classId),
-      calendarService.getByClass(classId),
-      classService.getStudentIds(classId),
-    ]);
-    setSessions(sess); setEvents(evts);
-    const t = c.teacherId ? await userService.getById(c.teacherId) : null;
-    setTeacher(t);
-    if (studentIds.length > 0) {
-      const studs = await Promise.all(studentIds.map(id => userService.getById(id)));
-      setStudents(studs.filter(Boolean));
+    try {
+      const c = await classService.getById(classId);
+      if (!c) { setLoading(false); return; }
+      setCls(c);
+      const [sess, evts, studentIds] = await Promise.all([
+        sessionService.getByClass(classId),
+        calendarService.getByClass(classId),
+        classService.getStudentIds(classId),
+      ]);
+      setSessions(sess); setEvents(evts);
+      const t = c.teacherId ? await userService.getById(c.teacherId) : null;
+      setTeacher(t);
+      if (studentIds.length > 0) {
+        const studs = await Promise.all(studentIds.map(id => userService.getById(id)));
+        setStudents(studs.filter(Boolean));
+      }
+      activityLogService.log(user, `Xem chi tiết lớp: ${c.name}`).catch(() => {});
+    } catch (err) {
+      console.error('[AdminClassDetail] ❌ Load error:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    activityLogService.log(user, `Xem chi tiết lớp: ${c.name}`);
   }, [classId, user]);
 
   useEffect(() => { loadData(); }, [loadData]);

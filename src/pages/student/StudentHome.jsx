@@ -4,25 +4,45 @@ import classService from '../../services/classService';
 import { useNavigate } from 'react-router-dom';
 import EmptyState from '../../components/ui/EmptyState';
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton';
+import { useToast } from '../../components/ui/Toast';
 import { motion } from 'framer-motion';
+import { getJapaneseGreeting } from '../../utils/greeting';
 
 export default function StudentHome() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    classService.getByStudent(user.id).then(c => { setClasses(c); setLoading(false); });
-  }, [user.id]);
+    const load = async () => {
+      try {
+        console.log('[StudentHome] 🔄 Loading classes...');
+        const c = await classService.getByStudent(user.id);
+        console.log('[StudentHome] ✅ Loaded', c.length, 'classes');
+        setClasses(c);
+      } catch (err) {
+        console.error('[StudentHome] ❌ Load error:', err);
+        toast?.(err.message || 'Lỗi tải danh sách lớp', 'error');
+        setClasses([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [user.id, toast]);
 
   if (loading) return <LoadingSkeleton type="cards" count={3} />;
+
+  const greeting = getJapaneseGreeting();
+  const displayName = user?.name || user?.full_name || 'Bạn';
 
   return (
     <div>
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
         <h1 className="text-3xl font-bold text-surface-900 dark:text-white">
-          こんにちは、<span className="gradient-text">{user.name}</span> 🌸
+          {greeting.text}、<span className="gradient-text">{displayName}</span> {greeting.emoji}
         </h1>
         <p className="text-surface-500 mt-1">Chào mừng bạn! Hãy tiếp tục hành trình học tiếng Nhật.</p>
       </motion.div>

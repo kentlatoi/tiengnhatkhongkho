@@ -103,14 +103,14 @@ const authService = {
       });
       if (error) return { success: false, error: error.message };
       // Insert profile with auth_user_id
-      const { error: pErr } = await supabase.from('profiles').insert({
+      const { data: pData, error: pErr } = await supabase.from('profiles').insert({
         auth_user_id: authData.user.id,
         email: data.email,
         full_name: data.name,
         role: 'student',
-      });
+      }).select('*').single();
       if (pErr) return { success: false, error: pErr.message };
-      const user = { id: authData.user.id, email: data.email, name: data.name, role: 'student', avatar: '', phone: '', birthday: '', bio: '' };
+      const user = mapProfile(pData);
       supabase.from('activity_logs').insert({
         user_id: user.id, user_name: user.name, user_email: user.email,
         role: 'student', action: 'Đăng ký tài khoản mới',
@@ -140,7 +140,7 @@ const authService = {
         password: userData.password,
       });
       if (error) return { success: false, error: error.message };
-      const { error: pErr } = await supabase.from('profiles').insert({
+      const { data: pData, error: pErr } = await supabase.from('profiles').insert({
         auth_user_id: authData.user.id,
         email: userData.email,
         full_name: userData.name,
@@ -148,7 +148,7 @@ const authService = {
         phone: userData.phone || '',
         birthday: userData.birthday || null,
         bio: userData.bio || '',
-      });
+      }).select('*').single();
       if (pErr) return { success: false, error: pErr.message };
       if (adminUser) {
         supabase.from('activity_logs').insert({
@@ -156,7 +156,7 @@ const authService = {
           role: adminUser.role, action: `Tạo tài khoản ${userData.role}: ${userData.name}`,
         }).then(() => { }).catch(() => { });
       }
-      return { success: true, user: { id: authData.user.id, ...userData } };
+      return { success: true, user: mapProfile(pData) };
     }
     // localStorage fallback
     if (usersStore.getByEmail(userData.email)) return { success: false, error: 'Email đã được sử dụng' };

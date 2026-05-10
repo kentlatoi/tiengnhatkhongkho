@@ -30,7 +30,7 @@ Run this SQL in Supabase **SQL Editor**:
 -- ============================================
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  auth_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  auth_user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT UNIQUE NOT NULL,
   full_name TEXT NOT NULL DEFAULT '',
   role TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('admin', 'teacher', 'student')),
@@ -51,9 +51,10 @@ CREATE TABLE IF NOT EXISTS classes (
   description TEXT,
   level TEXT DEFAULT 'N5',
   schedule TEXT,
-  thumbnail TEXT DEFAULT '🗻',
+  icon TEXT DEFAULT '🗻',
   teacher_id UUID REFERENCES profiles(id),
-  teacher_name TEXT,
+  created_by UUID REFERENCES profiles(id),
+  status TEXT DEFAULT 'active',
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -216,6 +217,10 @@ CREATE TABLE IF NOT EXISTS flashcards (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- In case order_index was missed in earlier schema setups:
+-- ALTER TABLE public.flashcards ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0;
+-- NOTIFY pgrst, 'reload schema';
+
 -- ============================================
 -- ACTIVITY LOGS
 -- ============================================
@@ -371,7 +376,7 @@ ALTER TABLE lesson_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: users can read all, update own
 CREATE POLICY "Read all profiles" ON profiles FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Update own profile" ON profiles FOR UPDATE TO authenticated USING (auth_id = auth.uid());
+CREATE POLICY "Update own profile" ON profiles FOR UPDATE TO authenticated USING (auth_user_id = auth.uid());
 
 -- Classes: all authenticated can read
 CREATE POLICY "Read all classes" ON classes FOR SELECT TO authenticated USING (true);
@@ -426,3 +431,52 @@ CREATE POLICY "Read sessions" ON lesson_sessions FOR SELECT TO authenticated USI
 - [ ] Play listening file
 - [ ] See only assigned class calendar
 - [ ] View vocabulary/grammar
+
+## 11. Migration SQL (for existing databases)
+
+If your database was created with an older schema, run these to add missing columns:
+
+```sql
+-- ============================================
+-- PROFILES: rename auth_id → auth_user_id
+-- ============================================
+ALTER TABLE profiles RENAME COLUMN auth_id TO auth_user_id;
+
+-- ============================================
+-- CLASSES: add missing columns
+-- ============================================
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS name TEXT;
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS level TEXT DEFAULT 'N5';
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS schedule TEXT;
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS icon TEXT DEFAULT '🗻';
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS teacher_id UUID;
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS created_by UUID;
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+
+-- If you had 'thumbnail' instead of 'icon':
+-- ALTER TABLE classes RENAME COLUMN thumbnail TO icon;
+
+-- If you had 'teacher_name' column (no longer needed):
+-- ALTER TABLE classes DROP COLUMN IF EXISTS teacher_name;
+
+-- ============================================
+-- RLS: Allow all CRUD for authenticated users (dev mode)
+-- ============================================
+ALTER TABLE classes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all for authenticated" ON classes FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+ALTER TABLE class_members ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all for authenticated" ON class_members FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+ALTER TABLE lesson_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all for authenticated" ON lesson_sessions FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+ALTER TABLE calendar_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all for authenticated" ON calendar_events FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all for authenticated" ON activity_logs FOR ALL TO authenticated USING (true) WITH CHECK (true);
+```

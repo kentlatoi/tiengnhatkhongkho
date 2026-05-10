@@ -15,16 +15,20 @@ export default function AdminDashboard() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [users, classes, sessions, logs, vocabItems] = await Promise.all([
+        console.log('[AdminDashboard] 🔄 Loading data...');
+        const results = await Promise.allSettled([
           userService.getAll(),
           classService.getAll(),
           sessionService.getAll(),
           activityLogService.getAll(),
           vocabularyService.getAllItems(),
         ]);
+        const [users, classes, sessions, logs, vocabItems] = results.map(r => r.status === 'fulfilled' ? r.value : []);
+        results.forEach((r, i) => { if (r.status === 'rejected') console.error('[AdminDashboard] ❌ Query', i, 'failed:', r.reason); });
+        console.log('[AdminDashboard] ✅ Loaded:', users.length, 'users,', classes.length, 'classes,', sessions.length, 'sessions');
         setData({ users, classes, sessions, logs, vocabItems });
       } catch (err) {
-        console.error('AdminDashboard load error:', err);
+        console.error('[AdminDashboard] ❌ Load error:', err);
         setData({ users: [], classes: [], sessions: [], logs: [], vocabItems: [] });
       } finally {
         setLoading(false);

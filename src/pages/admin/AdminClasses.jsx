@@ -22,8 +22,13 @@ export default function AdminClasses() {
   const [deleteId, setDeleteId] = useState(null);
 
   const refresh = useCallback(async () => {
-    const [c, t] = await Promise.all([classService.getAll(), userService.getTeachers()]);
-    setClasses(c); setTeachers(t);
+    try {
+      const [c, t] = await Promise.all([classService.getAll(), userService.getTeachers()]);
+      setClasses(c); setTeachers(t);
+    } catch (err) {
+      console.error('[AdminClasses] ❌ Load error:', err);
+      setClasses([]); setTeachers([]);
+    }
   }, []);
 
   useEffect(() => { refresh().finally(() => setLoading(false)); }, [refresh]);

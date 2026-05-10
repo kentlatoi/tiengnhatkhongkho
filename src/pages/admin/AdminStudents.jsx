@@ -13,6 +13,7 @@ export default function AdminStudents() {
   useEffect(() => {
     Promise.all([userService.getStudents(), classService.getAll()])
       .then(([s, c]) => { setStudents(s); setClasses(c); })
+      .catch(err => { console.error('[AdminStudents] ❌ Load error:', err); setStudents([]); setClasses([]); })
       .finally(() => setLoading(false));
   }, []);
 

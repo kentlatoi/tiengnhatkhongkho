@@ -10,18 +10,34 @@ function mapTopic(t) {
 
 function mapPoint(p) {
   return {
-    id: p.id, topicId: p.topic_id || p.topicId || '',
-    pattern: p.pattern || '', explanation: p.explanation || '',
-    vietnameseExplanation: p.vietnamese_explanation || p.vietnameseExplanation || '',
-    englishExplanation: p.english_explanation || p.englishExplanation || '',
-    examples: p.examples || [], notes: p.notes || '', learned: p.learned || false,
+    id: p.id,
+    topicId: p.topic_id || p.topicId,
+    pattern: p.pattern,
+    title: p.pattern,
+    name: p.pattern,
+    explanationVi: p.explanation_vi || '',
+    explanationEn: p.explanation_en || '',
+    vietnamese: p.explanation_vi || '',
+    english: p.explanation_en || '',
+    examples: p.example_sentences
+      ? p.example_sentences.split('\n').filter(Boolean)
+      : [],
+    notes: p.usage_notes || '',
+    learned: false,
+    createdAt: p.created_at || ''
   };
 }
 
 const grammarService = {
   getTopics: async () => {
     if (isSupabase()) {
-      const { data } = await supabase.from('grammar_topics').select('*').order('title');
+      console.log('[grammar] 🔄 Loading grammar topics...');
+      const { data, error } = await supabase.from('grammar_topics').select('*').order('title');
+      if (error) {
+        console.error('[grammar] ❌ Topics load error:', error);
+        throw error;
+      }
+      console.log('[grammar] ✅ Loaded', (data || []).length, 'topics');
       return (data || []).map(mapTopic);
     }
     return grammarTopicsStore.getAll();
@@ -29,9 +45,15 @@ const grammarService = {
 
   getPoints: async (topicId) => {
     if (isSupabase()) {
+      console.log('[grammar] 🔄 Loading points for topic:', topicId || 'all');
       let q = supabase.from('grammar_points').select('*');
       if (topicId) q = q.eq('topic_id', topicId);
-      const { data } = await q.order('pattern');
+      const { data, error } = await q.order('pattern');
+      if (error) {
+        console.error('[grammar] ❌ Points load error:', error);
+        throw error;
+      }
+      console.log('[grammar] ✅ Loaded', (data || []).length, 'points');
       return (data || []).map(mapPoint);
     }
     return topicId ? grammarPointsStore.getByTopic(topicId) : grammarPointsStore.getAll();
@@ -39,7 +61,11 @@ const grammarService = {
 
   getAllPoints: async () => {
     if (isSupabase()) {
-      const { data } = await supabase.from('grammar_points').select('*').order('pattern');
+      const { data, error } = await supabase.from('grammar_points').select('*').order('pattern');
+      if (error) {
+        console.error('[grammar] ❌ All points load error:', error);
+        throw error;
+      }
       return (data || []).map(mapPoint);
     }
     return grammarPointsStore.getAll();
@@ -47,25 +73,48 @@ const grammarService = {
 
   createTopic: async (topicData) => {
     if (isSupabase()) {
-      const { data, error } = await supabase.from('grammar_topics').insert({ title: topicData.title, description: topicData.description }).select().single();
-      if (error) throw error;
+      const payload = {
+        title: topicData.title || '',
+        description: topicData.description || '',
+        created_by: topicData.createdBy || null,
+      };
+      console.log('[grammar] 📤 Creating topic, payload:', payload);
+      const { data, error } = await supabase.from('grammar_topics').insert(payload).select('*').single();
+      if (error) {
+        console.error('[grammar] ❌ Topic creation error:', error);
+        throw error;
+      }
+      console.log('[grammar] ✅ Topic created:', data.id, data.title);
       return mapTopic(data);
     }
     return grammarTopicsStore.add({ id: topicData.id || 'gt-' + Date.now(), ...topicData });
   },
 
-  updateTopic: async (id, data) => {
+  updateTopic: async (id, topicData) => {
     if (isSupabase()) {
-      await supabase.from('grammar_topics').update(data).eq('id', id);
-      return { id, ...data };
+      const payload = {};
+      if (topicData.title !== undefined) payload.title = topicData.title;
+      if (topicData.description !== undefined) payload.description = topicData.description;
+      console.log('[grammar] 📤 Updating topic', id, 'payload:', payload);
+      const { error } = await supabase.from('grammar_topics').update(payload).eq('id', id);
+      if (error) {
+        console.error('[grammar] ❌ Topic update error:', error);
+        throw error;
+      }
+      return { id, ...topicData };
     }
-    return grammarTopicsStore.update(id, data);
+    return grammarTopicsStore.update(id, topicData);
   },
 
   removeTopic: async (id) => {
     if (isSupabase()) {
+      console.log('[grammar] 🗑️ Deleting topic and points:', id);
       await supabase.from('grammar_points').delete().eq('topic_id', id);
-      await supabase.from('grammar_topics').delete().eq('id', id);
+      const { error } = await supabase.from('grammar_topics').delete().eq('id', id);
+      if (error) {
+        console.error('[grammar] ❌ Topic delete error:', error);
+        throw error;
+      }
       return;
     }
     grammarTopicsStore.remove(id);
@@ -73,36 +122,59 @@ const grammarService = {
 
   createPoint: async (pointData) => {
     if (isSupabase()) {
-      const { data, error } = await supabase.from('grammar_points').insert({
-        topic_id: pointData.topicId, pattern: pointData.pattern,
-        explanation: pointData.explanation, vietnamese_explanation: pointData.vietnameseExplanation,
-        english_explanation: pointData.englishExplanation, examples: pointData.examples || [],
-        notes: pointData.notes, learned: false,
-      }).select().single();
-      if (error) throw error;
+      const payload = {
+        topic_id: pointData.topicId,
+        pattern: pointData.pattern || pointData.title || pointData.name || '',
+        explanation_vi: pointData.vietnamese || pointData.vietnameseExplanation || pointData.explanation || '',
+        explanation_en: pointData.english || pointData.englishExplanation || '',
+        example_sentences: Array.isArray(pointData.examples)
+          ? pointData.examples.filter(Boolean).join('\n')
+          : pointData.example || '',
+        usage_notes: pointData.notes || pointData.usageNotes || ''
+      };
+      console.log('[GrammarPoint] payload:', payload);
+      const { data, error } = await supabase.from('grammar_points').insert(payload).select('*').single();
+      if (error) {
+        console.error('[grammar] ❌ Point creation error:', error);
+        throw error;
+      }
+      console.log('[grammar] ✅ Point created:', data.id);
       return mapPoint(data);
     }
     return grammarPointsStore.add({ id: pointData.id || 'gp-' + Date.now(), ...pointData });
   },
 
-  updatePoint: async (id, data) => {
+  updatePoint: async (id, pointData) => {
     if (isSupabase()) {
-      const mapped = {};
-      if (data.pattern !== undefined) mapped.pattern = data.pattern;
-      if (data.explanation !== undefined) mapped.explanation = data.explanation;
-      if (data.vietnameseExplanation !== undefined) mapped.vietnamese_explanation = data.vietnameseExplanation;
-      if (data.englishExplanation !== undefined) mapped.english_explanation = data.englishExplanation;
-      if (data.examples !== undefined) mapped.examples = data.examples;
-      if (data.notes !== undefined) mapped.notes = data.notes;
-      await supabase.from('grammar_points').update(mapped).eq('id', id);
-      return { id, ...data };
+      const payload = {};
+      if (pointData.pattern !== undefined || pointData.title !== undefined || pointData.name !== undefined) payload.pattern = pointData.pattern || pointData.title || pointData.name;
+      if (pointData.vietnamese !== undefined || pointData.vietnameseExplanation !== undefined || pointData.explanation !== undefined) payload.explanation_vi = pointData.vietnamese || pointData.vietnameseExplanation || pointData.explanation;
+      if (pointData.english !== undefined || pointData.englishExplanation !== undefined) payload.explanation_en = pointData.english || pointData.englishExplanation;
+      if (pointData.examples !== undefined || pointData.example !== undefined) {
+        payload.example_sentences = Array.isArray(pointData.examples)
+          ? pointData.examples.filter(Boolean).join('\n')
+          : pointData.example || '';
+      }
+      if (pointData.notes !== undefined || pointData.usageNotes !== undefined) payload.usage_notes = pointData.notes || pointData.usageNotes;
+      console.log('[GrammarPoint] payload:', payload);
+      const { error } = await supabase.from('grammar_points').update(payload).eq('id', id);
+      if (error) {
+        console.error('[grammar] ❌ Point update error:', error);
+        throw error;
+      }
+      return { id, ...pointData };
     }
-    return grammarPointsStore.update(id, data);
+    return grammarPointsStore.update(id, pointData);
   },
 
   removePoint: async (id) => {
     if (isSupabase()) {
-      await supabase.from('grammar_points').delete().eq('id', id);
+      console.log('[grammar] 🗑️ Deleting point:', id);
+      const { error } = await supabase.from('grammar_points').delete().eq('id', id);
+      if (error) {
+        console.error('[grammar] ❌ Point delete error:', error);
+        throw error;
+      }
       return;
     }
     grammarPointsStore.remove(id);
