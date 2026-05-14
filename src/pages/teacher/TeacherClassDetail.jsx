@@ -361,19 +361,19 @@ export default function TeacherClassDetail() {
 
       {/* Session Form Modal */}
       <Modal isOpen={showForm} onClose={()=>{setShowForm(false);setEditSess(null);}} title={editSess?'Sửa buổi học':'Thêm buổi học'} size="lg">
-        <form onSubmit={handleSave} className="space-y-5 max-h-[75vh] overflow-y-auto custom-scrollbar pr-1">
+        <form onSubmit={handleSave} className="space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar p-6">
           {/* Section 1: Basic Info */}
           <SectionHeader icon="📋" title="Thông tin cơ bản"/>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div><label className="input-label">Tiêu đề</label><input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} required className="input" placeholder="Hiragana あ～お"/></div>
-            <div><label className="input-label">Ngày</label><input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} className="input"/></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div><label className="input-label text-surface-700">Tiêu đề</label><input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} required className="input bg-surface-50/50 dark:bg-surface-800/50 border-surface-200 dark:border-surface-700" placeholder="Hiragana あ～お"/></div>
+            <div><label className="input-label text-surface-700">Ngày</label><input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} className="input bg-surface-50/50 dark:bg-surface-800/50 border-surface-200 dark:border-surface-700"/></div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="input-label">Giờ bắt đầu</label><input type="time" value={form.startTime} onChange={e=>setForm(f=>({...f,startTime:e.target.value}))} className="input"/></div>
-            <div><label className="input-label">Giờ kết thúc</label><input type="time" value={form.endTime} onChange={e=>setForm(f=>({...f,endTime:e.target.value}))} className="input"/></div>
+          <div className="grid grid-cols-2 gap-4">
+            <div><label className="input-label text-surface-700">Giờ bắt đầu</label><input type="time" value={form.startTime} onChange={e=>setForm(f=>({...f,startTime:e.target.value}))} className="input bg-surface-50/50 dark:bg-surface-800/50 border-surface-200 dark:border-surface-700"/></div>
+            <div><label className="input-label text-surface-700">Giờ kết thúc</label><input type="time" value={form.endTime} onChange={e=>setForm(f=>({...f,endTime:e.target.value}))} className="input bg-surface-50/50 dark:bg-surface-800/50 border-surface-200 dark:border-surface-700"/></div>
           </div>
-          <div><label className="input-label">Nội dung bài học</label><textarea value={form.contentDescription} onChange={e=>setForm(f=>({...f,contentDescription:e.target.value}))} className="input h-24 resize-none" placeholder="Mô tả nội dung..."/></div>
-          <div><label className="input-label">Bài tập về nhà</label><textarea value={form.homework} onChange={e=>setForm(f=>({...f,homework:e.target.value}))} className="input h-20 resize-none" placeholder="Bài tập..."/></div>
+          <div><label className="input-label text-surface-700">Nội dung bài học</label><textarea value={form.contentDescription} onChange={e=>setForm(f=>({...f,contentDescription:e.target.value}))} className="input bg-surface-50/50 dark:bg-surface-800/50 border-surface-200 dark:border-surface-700 h-24 resize-none leading-relaxed" placeholder="Mô tả nội dung..."/></div>
+          <div><label className="input-label text-surface-700">Bài tập về nhà</label><textarea value={form.homework} onChange={e=>setForm(f=>({...f,homework:e.target.value}))} className="input bg-surface-50/50 dark:bg-surface-800/50 border-surface-200 dark:border-surface-700 h-20 resize-none leading-relaxed" placeholder="Bài tập..."/></div>
 
           {/* Section 2: Document Files */}
           <SectionHeader icon="📁" title="Tài liệu đính kèm"/>
@@ -384,42 +384,48 @@ export default function TeacherClassDetail() {
           <FileUploadArea files={form.audioFiles} onChange={audioFiles=>setForm(f=>({...f,audioFiles}))} accept={AUDIO_ACCEPT} label="MP3, WAV, M4A, AAC" toast={toast}/>
 
           {/* Section 4: Notes */}
-          <div><label className="input-label">Ghi chú</label><input value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} className="input" placeholder="Ghi chú thêm..."/></div>
+          <div><label className="input-label text-surface-700">Ghi chú</label><input value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} className="input bg-surface-50/50 dark:bg-surface-800/50 border-surface-200 dark:border-surface-700" placeholder="Ghi chú thêm..."/></div>
 
           {/* Section 5: Quiz */}
-          <SectionHeader icon="❓" title={`Quiz (${form.quiz.length})`}/>
-          <button type="button" onClick={addQuiz} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer mb-2">＋ Thêm câu hỏi</button>
-          {form.quiz.map((q,qi) => (
-            <div key={q.id} className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800 mb-2">
-              <div className="flex items-center gap-2 mb-2">
-                <input value={q.question} onChange={e=>updateQuiz(qi,'question',e.target.value)} className="input text-sm flex-1" placeholder="Câu hỏi..."/>
-                <button type="button" onClick={()=>removeQuiz(qi)} className="text-sakura-500 cursor-pointer">✕</button>
+          <SectionHeader icon="❓" title={`Câu hỏi ôn tập (${form.quiz.length})`}/>
+          <div className="space-y-4">
+            {form.quiz.map((q,qi) => (
+              <div key={q.id} className="p-4 rounded-xl bg-surface-50/80 dark:bg-surface-800/80 border border-surface-100 dark:border-surface-700/50">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="font-semibold text-surface-500 text-sm shrink-0">#{qi + 1}</span>
+                  <input value={q.question} onChange={e=>updateQuiz(qi,'question',e.target.value)} className="input bg-white dark:bg-surface-900 border-surface-200 dark:border-surface-700 flex-1" placeholder="Nhập câu hỏi..."/>
+                  <button type="button" onClick={()=>removeQuiz(qi)} className="w-8 h-8 rounded-lg flex items-center justify-center text-surface-400 hover:bg-sakura-50 hover:text-sakura-500 transition-colors shrink-0">✕</button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-8">
+                  {q.options.map((o,oi) => (
+                    <div key={oi} className="flex items-center gap-2">
+                      <input type="radio" name={`a-${qi}`} checked={q.answer===oi} onChange={()=>updateQuiz(qi,'answer',oi)} className="w-4 h-4 text-primary-500 cursor-pointer accent-primary-500"/>
+                      <input value={o} onChange={e=>{const opts=[...q.options];opts[oi]=e.target.value;updateQuiz(qi,'options',opts);}} className={`input text-sm transition-colors ${q.answer === oi ? 'bg-primary-50/30 border-primary-300 dark:border-primary-700/50' : 'bg-white dark:bg-surface-900 border-surface-200 dark:border-surface-700'}`} placeholder={`Đáp án ${String.fromCharCode(65+oi)}`}/>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                {q.options.map((o,oi) => (
-                  <div key={oi} className="flex items-center gap-1">
-                    <input type="radio" name={`a-${qi}`} checked={q.answer===oi} onChange={()=>updateQuiz(qi,'answer',oi)}/>
-                    <input value={o} onChange={e=>{const opts=[...q.options];opts[oi]=e.target.value;updateQuiz(qi,'options',opts);}} className="input text-sm" placeholder={`Đáp án ${String.fromCharCode(65+oi)}`}/>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+            ))}
+            <button type="button" onClick={addQuiz} className="w-full py-3 rounded-xl border border-dashed border-surface-300 dark:border-surface-600 text-surface-600 dark:text-surface-400 hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50/50 dark:hover:bg-primary-900/20 transition-all cursor-pointer text-sm font-medium">＋ Thêm câu hỏi mới</button>
+          </div>
 
           {/* Section 6: Flashcards */}
-          <SectionHeader icon="🃏" title={`Flashcards (${form.flashcards.length})`}/>
-          <button type="button" onClick={addFlashcard} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer mb-2">＋ Thêm flashcard</button>
-          {form.flashcards.map((fc,fi) => (
-            <div key={fc.id} className="flex items-center gap-2 mb-2">
-              <input value={fc.front} onChange={e=>updateFlashcard(fi,'front',e.target.value)} className="input text-sm" placeholder="Mặt trước (JP)"/>
-              <input value={fc.back} onChange={e=>updateFlashcard(fi,'back',e.target.value)} className="input text-sm" placeholder="Mặt sau (nghĩa)"/>
-              <button type="button" onClick={()=>removeFlashcard(fi)} className="text-sakura-500 cursor-pointer">✕</button>
-            </div>
-          ))}
+          <SectionHeader icon="🃏" title={`Thẻ từ vựng (${form.flashcards.length})`}/>
+          <div className="space-y-3">
+            {form.flashcards.map((fc,fi) => (
+              <div key={fc.id} className="flex flex-col sm:flex-row items-center gap-3 p-3 rounded-xl bg-surface-50/50 dark:bg-surface-800/50 border border-surface-100 dark:border-surface-700/50">
+                <span className="font-semibold text-surface-400 text-xs w-6 text-center hidden sm:block">{fi + 1}</span>
+                <input value={fc.front} onChange={e=>updateFlashcard(fi,'front',e.target.value)} className="input text-sm bg-white dark:bg-surface-900 border-surface-200 dark:border-surface-700" placeholder="Mặt trước (Kanji/Từ)"/>
+                <input value={fc.back} onChange={e=>updateFlashcard(fi,'back',e.target.value)} className="input text-sm bg-white dark:bg-surface-900 border-surface-200 dark:border-surface-700" placeholder="Mặt sau (Ý nghĩa)"/>
+                <button type="button" onClick={()=>removeFlashcard(fi)} className="w-8 h-8 rounded-lg flex items-center justify-center text-surface-400 hover:bg-sakura-50 hover:text-sakura-500 transition-colors shrink-0">✕</button>
+              </div>
+            ))}
+            <button type="button" onClick={addFlashcard} className="w-full py-3 rounded-xl border border-dashed border-surface-300 dark:border-surface-600 text-surface-600 dark:text-surface-400 hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50/50 dark:hover:bg-primary-900/20 transition-all cursor-pointer text-sm font-medium">＋ Thêm thẻ từ vựng mới</button>
+          </div>
 
-          <div className="flex gap-3 pt-2 sticky bottom-0 bg-white dark:bg-surface-900 pb-1">
-            <button type="button" onClick={()=>{setShowForm(false);setEditSess(null);}} className="btn-secondary flex-1">Hủy</button>
-            <button type="submit" className="btn-primary flex-1">{editSess?'Cập nhật':'Tạo buổi học'}</button>
+          <div className="flex gap-4 pt-6 mt-4 border-t border-surface-100 dark:border-surface-800 sticky bottom-0 bg-white/90 dark:bg-surface-900/90 backdrop-blur-md pb-2 -mx-2 px-2">
+            <button type="button" onClick={()=>{setShowForm(false);setEditSess(null);}} className="btn-secondary flex-1 bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 hover:bg-surface-100 dark:hover:bg-surface-700">Hủy</button>
+            <button type="submit" className="btn-primary flex-1">{editSess?'Lưu thay đổi':'Tạo buổi học mới'}</button>
           </div>
         </form>
       </Modal>
@@ -430,7 +436,7 @@ export default function TeacherClassDetail() {
 }
 
 function SectionHeader({icon,title}){
-  return <div className="flex items-center gap-2 pt-2 border-t border-surface-200 dark:border-surface-700"><span className="text-lg">{icon}</span><h4 className="font-semibold text-surface-900 dark:text-white text-sm">{title}</h4></div>;
+  return <div className="flex items-center gap-3 pt-6 pb-2 border-b border-surface-100 dark:border-surface-800/50 mb-4 mt-6 first:mt-0 first:pt-0"><span className="text-xl">{icon}</span><h4 className="font-bold text-surface-800 dark:text-surface-100 text-sm uppercase tracking-wider">{title}</h4></div>;
 }
 
 function FileUploadArea({ files, onChange, accept, label, toast }) {
@@ -446,11 +452,11 @@ function FileUploadArea({ files, onChange, accept, label, toast }) {
     <div>
       <div onDrop={e=>{e.preventDefault();setDrag(false);add(e.dataTransfer.files);}} onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)}
         onClick={()=>ref.current?.click()}
-        className={`rounded-2xl border-2 border-dashed cursor-pointer transition-all text-center py-6 px-4 ${drag?'border-primary-500 bg-primary-50 dark:bg-primary-900/20 scale-[1.01]':'border-surface-300 dark:border-surface-600 hover:border-primary-400'}`}>
+        className={`rounded-2xl border-2 border-dashed cursor-pointer transition-all text-center py-8 px-4 flex flex-col items-center justify-center gap-2 ${drag?'border-primary-400 bg-primary-50/80 dark:bg-primary-900/20 scale-[1.01]':'border-surface-200 dark:border-surface-700 bg-surface-50/50 dark:bg-surface-800/30 hover:border-primary-300 hover:bg-white dark:hover:bg-surface-800/80'}`}>
+        <span className="text-3xl opacity-60 mb-1 drop-shadow-sm">☁️</span>
+        <p className="text-sm font-medium text-surface-600 dark:text-surface-400">Kéo thả file vào đây hoặc <span className="text-primary-500 hover:text-primary-600 transition-colors">nhấn để tải lên</span></p>
+        <p className="text-xs text-surface-400">Định dạng hỗ trợ: {label}</p>
         <input ref={ref} type="file" multiple accept={accept} className="hidden" onChange={e=>{add(e.target.files);e.target.value='';}}/>
-        <p className="text-3xl mb-1">📁</p>
-        <p className="text-sm font-medium text-surface-700 dark:text-surface-300">Kéo thả hoặc nhấn chọn file</p>
-        <p className="text-[10px] text-surface-400 mt-1">{label}</p>
       </div>
       {files.length>0 && (
         <div className="mt-2 space-y-1.5">

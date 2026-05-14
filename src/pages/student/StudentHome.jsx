@@ -39,32 +39,38 @@ export default function StudentHome() {
   const displayName = user?.name || user?.full_name || 'Bạn';
 
   return (
-    <div>
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-        <h1 className="text-3xl font-bold text-surface-900 dark:text-white">
+    <div className="pb-12">
+      <motion.div initial={{ opacity: 0, y: -15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: "easeOut" }} className="mb-10">
+        <h1 className="text-3xl sm:text-4xl font-bold text-surface-900 dark:text-white tracking-tight mb-2">
           {greeting.text}、<span className="gradient-text">{displayName}</span> {greeting.emoji}
         </h1>
-        <p className="text-surface-500 mt-1">Chào mừng bạn! Hãy tiếp tục hành trình học tiếng Nhật.</p>
+        <p className="text-surface-500 sm:text-lg">Chào mừng bạn! Hãy tiếp tục hành trình học tiếng Nhật.</p>
       </motion.div>
 
       {classes.length === 0 ? (
         <EmptyState icon="📚" title="Chưa có lớp học" description="Bạn chưa được phân vào lớp nào. Hãy liên hệ giáo viên." />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-8">
           {classes.map((cls, i) => (
             <motion.div key={cls.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08 }} whileHover={{ y: -4 }}
-              className="glass-card group cursor-pointer" onClick={() => navigate(`/student/class/${cls.id}`)}>
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-3xl shadow-lg shadow-primary-500/20">
+              transition={{ delay: i * 0.08, duration: 0.4 }}
+              className="glass-card group cursor-pointer flex flex-col h-full" onClick={() => navigate(`/student/class/${cls.id}`)}>
+              <div className="flex items-start justify-between mb-5">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-3xl shadow-lg shadow-primary-500/30 group-hover:scale-110 transition-transform duration-300">
                   {cls.thumbnail}
                 </div>
-                <span className="badge-primary">{cls.level}</span>
+                <span className="badge-primary px-3 py-1 text-sm">{cls.level}</span>
               </div>
-              <h3 className="text-lg font-bold text-surface-900 dark:text-white mb-1">{cls.name}</h3>
-              <p className="text-sm text-surface-500 mb-1">👩‍🏫 {cls.teacherName}</p>
-              <p className="text-xs text-surface-400 mb-3">📅 {cls.schedule}</p>
-              <button className="btn-primary w-full mt-4 py-2.5 text-sm">Vào lớp →</button>
+              <h3 className="text-xl font-bold text-surface-900 dark:text-white mb-2 leading-tight group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{cls.name}</h3>
+              <p className="text-sm text-surface-600 dark:text-surface-400 mb-1 flex items-center gap-2">👩‍🏫 {cls.teacherName}</p>
+              <p className="text-xs text-surface-400 mb-5 flex items-center gap-2">📅 {cls.schedule}</p>
+              
+              <div className="mt-auto pt-4 border-t border-surface-200 dark:border-surface-700/50">
+                <button className="btn-primary w-full py-3 text-sm flex justify-center items-center gap-2 group-hover:bg-primary-600 transition-colors">
+                  Vào lớp học
+                  <span className="group-hover:translate-x-1 transition-transform">→</span>
+                </button>
+              </div>
             </motion.div>
           ))}
         </div>

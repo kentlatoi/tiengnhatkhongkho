@@ -15,7 +15,7 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, title, messag
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="relative w-full max-w-md bg-white dark:bg-surface-900 rounded-2xl shadow-2xl overflow-hidden"
+            className="relative w-full max-w-md glass-card !p-0 overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
             <div className="p-6 text-center">

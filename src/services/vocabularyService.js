@@ -12,15 +12,14 @@ function mapItem(i) {
   return {
     id: i.id,
     topicId: i.topic_id || i.topicId || '',
-    japanese: i.kanji || '',
-    kanji: i.kanji || '',
+    kanji: i.kanji || i.japanese || '',
     hiragana: i.hiragana || '',
     romaji: i.romaji || '',
-    vietnamese: i.meaning_vi || '',
-    english: i.meaning_en || '',
-    example: i.example_sentence || '',
+    meaning_vi: i.meaning_vi || i.vietnamese || '',
+    meaning_en: i.meaning_en || i.english || '',
+    example_sentence: i.example_sentence || i.example || '',
     learned: false,
-    createdAt: i.created_at || ''
+    createdAt: i.created_at || i.createdAt || ''
   };
 }
 
@@ -119,12 +118,12 @@ const vocabularyService = {
     if (isSupabase()) {
       const payload = {
         topic_id: itemData.topicId,
-        kanji: itemData.kanji || itemData.japanese || '',
+        kanji: itemData.kanji || '',
         hiragana: itemData.hiragana || '',
         romaji: itemData.romaji || '',
-        meaning_vi: itemData.vietnamese || '',
-        meaning_en: itemData.english || '',
-        example_sentence: itemData.example || ''
+        meaning_vi: itemData.meaning_vi || '',
+        meaning_en: itemData.meaning_en || '',
+        example_sentence: itemData.example_sentence || ''
       };
       console.log('[VocabItem] payload:', payload);
       const { data, error } = await supabase.from('vocabulary_items').insert(payload).select('*').single();
@@ -141,12 +140,12 @@ const vocabularyService = {
   updateItem: async (id, itemData) => {
     if (isSupabase()) {
       const payload = {};
-      if (itemData.kanji !== undefined || itemData.japanese !== undefined) payload.kanji = itemData.kanji || itemData.japanese;
+      if (itemData.kanji !== undefined) payload.kanji = itemData.kanji;
       if (itemData.hiragana !== undefined) payload.hiragana = itemData.hiragana;
       if (itemData.romaji !== undefined) payload.romaji = itemData.romaji;
-      if (itemData.vietnamese !== undefined) payload.meaning_vi = itemData.vietnamese;
-      if (itemData.english !== undefined) payload.meaning_en = itemData.english;
-      if (itemData.example !== undefined) payload.example_sentence = itemData.example;
+      if (itemData.meaning_vi !== undefined) payload.meaning_vi = itemData.meaning_vi;
+      if (itemData.meaning_en !== undefined) payload.meaning_en = itemData.meaning_en;
+      if (itemData.example_sentence !== undefined) payload.example_sentence = itemData.example_sentence;
       console.log('[VocabItem] payload:', payload);
       const { error } = await supabase.from('vocabulary_items').update(payload).eq('id', id);
       if (error) {

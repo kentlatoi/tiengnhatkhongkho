@@ -26,6 +26,22 @@ export default function StudentClassDetail() {
   const [openSessId, setOpenSessId] = useState(null);
   const [activeTab, setActiveTab] = useState('content');
   const [playingAudio, setPlayingAudio] = useState(null);
+  const [learnedFlashcards, setLearnedFlashcards] = useState([]);
+
+  useEffect(() => {
+    try { const p = JSON.parse(localStorage.getItem(`progress_${user.id}`) || '{}'); setLearnedFlashcards(p.learnedFlashcards || []); } catch {}
+  }, [user.id]);
+
+  const toggleLearnedFlashcard = (fcId, forceState) => {
+    setLearnedFlashcards(prev => {
+      let next;
+      if (forceState === true) next = prev.includes(fcId) ? prev : [...prev, fcId];
+      else if (forceState === false) next = prev.filter(id => id !== fcId);
+      else next = prev.includes(fcId) ? prev.filter(id => id !== fcId) : [...prev, fcId];
+      try { const p = JSON.parse(localStorage.getItem(`progress_${user.id}`) || '{}'); p.learnedFlashcards = next; localStorage.setItem(`progress_${user.id}`, JSON.stringify(p)); } catch {}
+      return next;
+    });
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -200,7 +216,15 @@ export default function StudentClassDetail() {
                               </div>
                             )}
                             {activeTab==='quiz' && <QuizInteractive quiz={sess.quiz||[]} />}
-                            {activeTab==='flashcards' && <FlashcardArea flashcards={sess.flashcards||[]}/>}
+                            {activeTab==='flashcards' && <FlashcardArea 
+                              flashcards={sess.flashcards||[]} 
+                              learnedFlashcards={learnedFlashcards} 
+                              onToggle={toggleLearnedFlashcard} 
+                              sessions={sessions} 
+                              currentSessionId={sess.id} 
+                              setOpenSessId={setOpenSessId} 
+                              setActiveTab={setActiveTab} 
+                            />}
                           </motion.div>
                         </AnimatePresence>
                       </div>
@@ -256,23 +280,100 @@ function FileItem({ f, toast }) {
 
 
 
-function FlashcardArea({ flashcards }) {
+function FlashcardArea({ flashcards, learnedFlashcards, onToggle, sessions, currentSessionId, setOpenSessId, setActiveTab }) {
+  const [originalItems, setOriginalItems] = useState([]);
+  const [activeItems, setActiveItems] = useState([]);
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
-  if (flashcards.length === 0) return <p className="text-surface-500 text-sm">Chưa có flashcard.</p>;
-  const fc = flashcards[idx];
+
+  useEffect(() => {
+    setOriginalItems(flashcards);
+    const unlearned = flashcards.filter(i => !learnedFlashcards.includes(i.id));
+    setActiveItems(unlearned);
+    setIdx(0);
+    setFlipped(false);
+  }, [flashcards]);
+
+  const markLearned = () => {
+    const fc = activeItems[idx];
+    if (!fc) return;
+    onToggle(fc.id, true);
+    
+    const nextActive = activeItems.filter(i => i.id !== fc.id);
+    setActiveItems(nextActive);
+    setFlipped(false);
+    
+    if (nextActive.length > 0) {
+      if (idx >= nextActive.length) setIdx(Math.max(0, nextActive.length - 1));
+    } else {
+      // Completed current session flashcards! Find the next session with unlearned flashcards.
+      const currentIndex = sessions.findIndex(s => s.id === currentSessionId);
+      let nextSessId = null;
+      for (let i = currentIndex + 1; i < sessions.length; i++) {
+        const sess = sessions[i];
+        if (sess.flashcards && sess.flashcards.length > 0) {
+          const unlearnedInSess = sess.flashcards.filter(card => !learnedFlashcards.includes(card.id) && card.id !== fc.id);
+          if (unlearnedInSess.length > 0) {
+            nextSessId = sess.id;
+            break;
+          }
+        }
+      }
+      
+      if (nextSessId) {
+        setOpenSessId(nextSessId);
+        setActiveTab('flashcards');
+      }
+    }
+  };
+
+  const refresh = () => {
+    setActiveItems(originalItems);
+    setIdx(0);
+    setFlipped(false);
+  };
+
+  const shuffle = () => {
+    const shuffled = [...activeItems].sort(() => Math.random() - 0.5);
+    setActiveItems(shuffled);
+    setIdx(0);
+    setFlipped(false);
+  };
+
+  if (activeItems.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 bg-surface-50 dark:bg-surface-800 rounded-xl">
+        <p className="text-4xl mb-4">🎉</p>
+        <p className="text-sm font-medium text-surface-900 dark:text-white mb-4 text-center">Bạn đã hoàn thành tất cả flashcard cần ôn.</p>
+        <button onClick={refresh} className="btn-primary text-xs">🔄 Làm mới</button>
+      </div>
+    );
+  }
+
+  const fc = activeItems[idx];
+  const next = () => { setFlipped(false); setIdx(i => (i + 1) % activeItems.length); };
+  const prev = () => { setFlipped(false); setIdx(i => (i - 1 + activeItems.length) % activeItems.length); };
+
   return (
     <div className="flex flex-col items-center">
-      <p className="text-xs text-surface-500 mb-3">{idx+1}/{flashcards.length}</p>
+      <div className="flex w-full max-w-sm justify-between items-center mb-2 px-2">
+        <p className="text-xs font-medium text-surface-500">{idx+1} / {activeItems.length}</p>
+        <div className="flex gap-2">
+          <button onClick={shuffle} className="btn-ghost text-xs py-1 px-2 rounded-lg bg-surface-100 dark:bg-surface-800 hover:bg-surface-200">🔀 Xáo trộn</button>
+          <button onClick={refresh} className="btn-ghost text-xs py-1 px-2 rounded-lg bg-surface-100 dark:bg-surface-800 hover:bg-surface-200">🔄 Làm mới</button>
+        </div>
+      </div>
+      
       <div className="relative w-full max-w-sm h-44 sm:h-48 cursor-pointer mb-4" style={{perspective:'1000px'}} onClick={()=>setFlipped(f=>!f)}>
         <motion.div animate={{rotateY:flipped?180:0}} transition={{duration:0.6}} className="absolute inset-0" style={{transformStyle:'preserve-3d'}}>
           <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-3xl sm:text-4xl font-bold shadow-xl p-6" style={{backfaceVisibility:'hidden'}}>{fc.front}</div>
           <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-accent-500 to-accent-600 flex items-center justify-center text-white text-sm sm:text-lg font-medium p-6 text-center shadow-xl" style={{backfaceVisibility:'hidden',transform:'rotateY(180deg)'}}>{fc.back}</div>
         </motion.div>
       </div>
-      <div className="flex gap-3">
-        <button onClick={()=>{setFlipped(false);setIdx(i=>(i-1+flashcards.length)%flashcards.length);}} className="btn-secondary text-sm">← Trước</button>
-        <button onClick={()=>{setFlipped(false);setIdx(i=>(i+1)%flashcards.length);}} className="btn-secondary text-sm">Tiếp →</button>
+      <div className="flex gap-3 items-center">
+        <button onClick={prev} className="btn-secondary text-sm">← Trước</button>
+        <button onClick={markLearned} className="btn-primary text-sm">✓ Đã học</button>
+        <button onClick={next} className="btn-secondary text-sm">Tiếp →</button>
       </div>
     </div>
   );
