@@ -8,6 +8,7 @@ import activityLogService from '../../services/activityLogService';
 import Modal from '../../components/ui/Modal';
 import SearchBar from '../../components/ui/SearchBar';
 import LoadingSkeleton from '../../components/ui/LoadingSkeleton';
+import { useToast } from '../../components/ui/Toast';
 import { motion } from 'framer-motion';
 
 export default function AdminAccounts() {
@@ -23,6 +24,7 @@ export default function AdminAccounts() {
   const [showDelete, setShowDelete] = useState(null);
   const [showDetail, setShowDetail] = useState(null);
   const [fetchError, setFetchError] = useState('');
+  const toast = useToast();
 
   const refresh = useCallback(async () => {
     setFetchError('');
@@ -74,9 +76,17 @@ export default function AdminAccounts() {
 
   const handleDelete = async () => {
     if (!showDelete || showDelete.id === admin.id) return;
-    await userService.remove(showDelete.id);
-    await activityLogService.log(admin, `Xóa tài khoản: ${showDelete.name}`);
-    await refresh(); setShowDelete(null);
+    try {
+      await userService.remove(showDelete.id, showDelete.authId);
+      await activityLogService.log(admin, `Xóa tài khoản: ${showDelete.name}`);
+      toast('Đã xoá tài khoản thành công');
+      await refresh();
+    } catch (err) {
+      console.error('Delete user error:', err);
+      toast(err.message || 'Lỗi khi xóa tài khoản', 'error');
+    } finally {
+      setShowDelete(null);
+    }
   };
 
   const roleLabels = { admin: 'Admin', teacher: 'Giáo viên', student: 'Học sinh' };

@@ -78,9 +78,16 @@ const userService = {
     return usersStore.update(id, { ...data, updatedAt: new Date().toISOString() });
   },
 
-  remove: async (id) => {
+  remove: async (id, authId) => {
     if (isSupabase()) {
-      await supabase.from('profiles').delete().eq('id', id);
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { authUserId: authId || id },
+        headers: session ? { Authorization: `Bearer ${session.access_token}` } : {}
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.success !== true) throw new Error('Xóa thất bại trên server');
       return;
     }
     usersStore.remove(id);
