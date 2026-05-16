@@ -47,7 +47,8 @@ export function AuthProvider({ children }) {
         } else {
           console.log('[AuthProvider] 🔄 localStorage auth restore...');
           try {
-            const saved = JSON.parse(localStorage.getItem('jlpt_current_user'));
+            const savedStr = localStorage.getItem('jlpt_current_user') || sessionStorage.getItem('jlpt_current_user');
+            const saved = savedStr ? JSON.parse(savedStr) : null;
             if (mounted.current) {
               setUser(saved);
               console.log('[AuthProvider] ✅ localStorage user:', saved ? saved.name : 'none');
@@ -93,12 +94,24 @@ export function AuthProvider({ children }) {
   // Persist to localStorage (fallback mode only)
   useEffect(() => {
     if (!isSupabase()) {
-      if (user) localStorage.setItem('jlpt_current_user', JSON.stringify(user));
-      else localStorage.removeItem('jlpt_current_user');
+      if (user) {
+        const remember = localStorage.getItem('jlpt_remember_me') === 'true';
+        if (remember) {
+          localStorage.setItem('jlpt_current_user', JSON.stringify(user));
+          sessionStorage.removeItem('jlpt_current_user');
+        } else {
+          sessionStorage.setItem('jlpt_current_user', JSON.stringify(user));
+          localStorage.removeItem('jlpt_current_user');
+        }
+      } else {
+        localStorage.removeItem('jlpt_current_user');
+        sessionStorage.removeItem('jlpt_current_user');
+      }
     }
   }, [user]);
 
-  const login = async (email, password) => {
+  const login = async (email, password, rememberMe = false) => {
+    localStorage.setItem('jlpt_remember_me', rememberMe ? 'true' : 'false');
     const result = await authService.login(email, password);
     if (result.success) setUser(result.user);
     return result;

@@ -128,91 +128,121 @@ export default function StudentClassDetail() {
   return (
     <div>
       {/* Banner */}
-      <motion.div initial={{opacity:0,y:-10}} animate={{opacity:1,y:0}} className="glass-card mb-6 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary-500/10 to-primary-600/5"/>
-        <div className="relative">
-          <button onClick={()=>navigate('/student')} className="btn-ghost text-sm mb-3">← Quay lại</button>
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-2xl sm:text-3xl shadow-lg shadow-primary-500/20">{cls.thumbnail || cls.icon || '🏫'}</div>
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-2xl font-bold text-surface-900 dark:text-white truncate">{cls.name || 'Lớp học'}</h1>
-              <p className="text-surface-500 text-xs sm:text-sm">👩‍🏫 {cls.teacherName || cls.teacher_name || 'Giáo viên'} · {cls.level || 'Khác'} · {cls.schedule || 'Chưa có lịch'}</p>
+      <motion.div initial={{opacity:0,y:-15}} animate={{opacity:1,y:0}} transition={{duration:0.5, ease:"easeOut"}} className="relative mb-8 overflow-hidden rounded-3xl bg-white dark:bg-surface-900 shadow-xl ring-1 ring-surface-900/5 dark:ring-white/10">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary-500/10 via-primary-500/5 to-transparent dark:from-primary-900/20 dark:via-primary-900/10" />
+        <div className="relative p-6 sm:p-8">
+          <button onClick={()=>navigate('/student')} className="flex items-center gap-2 text-sm font-medium text-surface-500 hover:text-primary-600 transition-colors mb-6 group w-max">
+            <span className="group-hover:-translate-x-1 transition-transform">←</span> Quay lại
+          </button>
+          
+          <div className="flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-6">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-3xl sm:text-4xl shadow-lg shadow-primary-500/30 text-white">{cls.thumbnail || cls.icon || '🏫'}</div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white truncate tracking-tight mb-2">{cls.name || 'Lớp học'}</h1>
+              <div className="flex flex-wrap items-center gap-3 text-sm text-surface-600 dark:text-surface-400 font-medium">
+                <span className="flex items-center gap-1.5"><span className="opacity-80 text-base">👩‍🏫</span> {cls.teacherName || cls.teacher_name || 'Giáo viên'}</span>
+                <span className="text-surface-300 dark:text-surface-700">•</span>
+                <span className="badge-primary px-2.5 py-0.5">{cls.level || 'Khác'}</span>
+                <span className="text-surface-300 dark:text-surface-700">•</span>
+                <span className="flex items-center gap-1.5"><span className="opacity-80 text-base">📅</span> {cls.schedule || 'Chưa có lịch'}</span>
+              </div>
             </div>
           </div>
-          {cls.description && <p className="mt-3 text-sm text-surface-600 dark:text-surface-400">{cls.description}</p>}
+          {cls.description && <p className="mt-5 text-surface-600 dark:text-surface-300 leading-relaxed max-w-3xl">{cls.description}</p>}
         </div>
       </motion.div>
 
       {/* Sessions */}
       {sessions.length === 0 ? (
-        <EmptyState icon="📅" title="Chưa có buổi học" description="Lớp này chưa có buổi học nào." />
+        <EmptyState icon="📅" title="Chưa có buổi học" description="Lớp này chưa có buổi học nào được lên lịch." />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4 pb-12">
           {sessions.map((sess, i) => {
             const isOpen = openSessId === sess.id;
             return (
-              <motion.div key={sess.id} initial={{opacity:0,y:15}} animate={{opacity:1,y:0}} transition={{delay:i*0.06}}>
+              <motion.div key={sess.id} initial={{opacity:0,y:15}} animate={{opacity:1,y:0}} transition={{delay:i*0.06, duration:0.4}}>
                 <button onClick={()=>{setOpenSessId(isOpen?null:sess.id);setActiveTab('content');setPlayingAudio(null);}}
-                  className={`w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 rounded-xl text-left cursor-pointer transition-all duration-300 ${isOpen?'bg-primary-50 dark:bg-primary-900/20 shadow-md':'glass-card hover:shadow-lg'}`}>
-                  <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-bold text-xs sm:text-sm transition-colors ${isOpen?'bg-primary-500 text-white':'bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400'}`}>
+                  className={`w-full flex items-center gap-4 px-5 sm:px-6 py-4 sm:py-5 rounded-2xl text-left cursor-pointer transition-all duration-300 group ${isOpen?'bg-primary-50 dark:bg-primary-900/10 border-primary-200 dark:border-primary-800/50 shadow-md':'bg-white dark:bg-surface-900 border border-surface-100 dark:border-surface-800 shadow-sm hover:shadow-md hover:border-primary-200 dark:hover:border-primary-800/50'}`}>
+                  <div className={`w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center font-bold text-sm sm:text-base transition-colors duration-300 ${isOpen?'bg-gradient-to-br from-primary-400 to-primary-600 text-white shadow-lg shadow-primary-500/30 scale-105':'bg-surface-50 dark:bg-surface-800 text-surface-500 dark:text-surface-400 group-hover:bg-primary-50 dark:group-hover:bg-primary-900/20 group-hover:text-primary-600'}`}>
                     {String(sess.sessionNumber || sess.order || i+1).padStart(2,'0')}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-surface-900 dark:text-white text-xs sm:text-sm truncate">{sess.title || `Session ${sess.sessionNumber || i+1}`}</p>
-                    <p className="text-[10px] sm:text-xs text-surface-400 mt-0.5">📅 {sess.date || 'Chưa có ngày'} {sess.time && `· 🕐 ${sess.time}`}</p>
+                    <p className={`font-bold text-base sm:text-lg truncate transition-colors duration-300 ${isOpen ? 'text-primary-700 dark:text-primary-400' : 'text-surface-900 dark:text-white group-hover:text-primary-600'}`}>
+                      {sess.title || `Session ${sess.sessionNumber || i+1}`}
+                    </p>
+                    <p className="text-xs sm:text-sm text-surface-500 mt-1 font-medium flex items-center gap-2">
+                      <span className="flex items-center gap-1.5"><span className="opacity-80">📅</span> {sess.date || 'Chưa có ngày'}</span>
+                      {sess.time && <><span className="text-surface-300 dark:text-surface-700">•</span><span className="flex items-center gap-1.5"><span className="opacity-80">🕐</span> {sess.time}</span></>}
+                    </p>
                   </div>
-                  <motion.span animate={{rotate:isOpen?180:0}} className="text-surface-400 text-sm sm:text-lg flex-shrink-0">▼</motion.span>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors duration-300 ${isOpen ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600' : 'bg-surface-50 dark:bg-surface-800 text-surface-400 group-hover:bg-primary-50 dark:group-hover:bg-primary-900/20 group-hover:text-primary-500'}`}>
+                    <motion.span animate={{rotate:isOpen?180:0}} className="text-sm">▼</motion.span>
+                  </div>
                 </button>
 
                 <AnimatePresence>
                   {isOpen && (
-                    <motion.div initial={{height:0,opacity:0}} animate={{height:'auto',opacity:1}} exit={{height:0,opacity:0}} transition={{duration:0.3}} className="overflow-hidden">
-                      <div className="ml-2 sm:ml-4 mt-2 p-4 sm:p-5 rounded-xl bg-white/50 dark:bg-surface-800/50 border border-surface-200/50 dark:border-surface-700/50">
-                        <div className="scrollable-tabs mb-4 sm:mb-5">
+                    <motion.div initial={{height:0,opacity:0}} animate={{height:'auto',opacity:1}} exit={{height:0,opacity:0}} transition={{duration:0.3, ease:"easeInOut"}} className="overflow-hidden">
+                      <div className="ml-4 sm:ml-8 mt-3 mb-6 p-5 sm:p-6 rounded-2xl bg-white/60 dark:bg-surface-900/40 backdrop-blur-sm border border-surface-200/50 dark:border-surface-700/50 shadow-sm relative before:absolute before:left-0 before:top-8 before:bottom-8 before:w-[2px] before:bg-gradient-to-b before:from-primary-200 before:via-primary-300 before:to-primary-100 dark:before:from-primary-800 dark:before:via-primary-700 dark:before:to-primary-900 before:-ml-4 sm:before:-ml-8 before:rounded-full">
+                        <div className="scrollable-tabs mb-6 flex gap-2 pb-2">
                           {tabs.map(t => (
                             <button key={t.key} onClick={()=>{setActiveTab(t.key);setPlayingAudio(null);}}
-                              className={`px-3 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${activeTab===t.key?'bg-primary-500 text-white shadow-md':'bg-surface-100 dark:bg-surface-700 text-surface-600 dark:text-surface-400 hover:bg-surface-200'}`}>
-                              {t.icon} {t.label}
+                              className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-2 ${activeTab===t.key?'bg-primary-500 text-white shadow-md shadow-primary-500/20':'bg-white dark:bg-surface-800 text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-700 border border-surface-100 dark:border-surface-700/50 hover:border-primary-200 dark:hover:border-primary-800/50'}`}>
+                              <span className="text-base">{t.icon}</span> {t.label}
                             </button>
                           ))}
                         </div>
 
                         <AnimatePresence mode="wait">
-                          <motion.div key={activeTab} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-8}}>
+                          <motion.div key={activeTab} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:0.2}}>
                             {activeTab==='content' && (
-                              <div>
-                                <p className="text-surface-700 dark:text-surface-300 whitespace-pre-wrap text-sm">{sess.contentDescription || sess.content_description || sess.description || 'Chưa có nội dung.'}</p>
+                              <div className="space-y-4">
+                                <div className="p-5 rounded-xl bg-white dark:bg-surface-900 border border-surface-100 dark:border-surface-800 shadow-sm">
+                                  <p className="text-surface-800 dark:text-surface-200 whitespace-pre-wrap text-sm sm:text-base leading-relaxed">{sess.contentDescription || sess.content_description || sess.description || 'Chưa có nội dung chi tiết cho buổi học này.'}</p>
+                                </div>
                                 {sess.notes && (
-                                  <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                                    <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-1">📌 Ghi chú</p>
-                                    <p className="text-sm text-amber-600 dark:text-amber-300">{sess.notes}</p>
+                                  <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/50 flex gap-3 items-start">
+                                    <span className="text-amber-500 text-lg shrink-0">📌</span>
+                                    <div>
+                                      <p className="text-xs font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wider mb-1">Ghi chú từ giáo viên</p>
+                                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200 leading-relaxed">{sess.notes}</p>
+                                    </div>
                                   </div>
                                 )}
                               </div>
                             )}
                             {activeTab==='files' && <FilesList files={sess.files} toast={toast} />}
                             {activeTab==='listening' && (
-                              <div className="space-y-3">
-                                {(sess.audioFiles||[]).length===0 ? <p className="text-surface-500 text-sm">Chưa có file nghe.</p> :
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {(sess.audioFiles||[]).length===0 ? <p className="text-surface-500 text-sm italic col-span-full">Chưa có bài luyện nghe nào.</p> :
                                   (sess.audioFiles||[]).map(f => (
-                                    <div key={f.id}>
-                                      <button onClick={()=>handlePlayAudio(f)} className="w-full text-left flex items-center gap-3 p-3 rounded-xl bg-surface-50 dark:bg-surface-800 hover:shadow-md transition-all cursor-pointer">
-                                        <div className="w-10 h-10 rounded-xl bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xl">🎵</div>
+                                    <div key={f.id} className="flex flex-col">
+                                      <button onClick={()=>handlePlayAudio(f)} className={`w-full text-left flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer group ${playingAudio?.id===f.id ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-800/50 shadow-sm' : 'bg-white dark:bg-surface-900 border-surface-100 dark:border-surface-800 hover:border-primary-200 dark:hover:border-primary-800/50 hover:shadow-md'}`}>
+                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 transition-colors ${playingAudio?.id===f.id ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30' : 'bg-primary-50 dark:bg-primary-900/30 text-primary-500 group-hover:bg-primary-100 dark:group-hover:bg-primary-900/50'}`}>🎧</div>
                                         <div className="flex-1 min-w-0">
-                                          <p className="text-sm font-medium text-surface-900 dark:text-white truncate">{f.name}</p>
-                                          <p className="text-xs text-surface-400">{formatFileSize(f.size)}</p>
+                                          <p className={`font-bold text-sm truncate transition-colors ${playingAudio?.id===f.id ? 'text-primary-700 dark:text-primary-400' : 'text-surface-900 dark:text-white group-hover:text-primary-600'}`}>{f.name}</p>
+                                          <p className="text-xs font-medium text-surface-400 mt-0.5">{formatFileSize(f.size)}</p>
                                         </div>
-                                        <span className="text-primary-500 text-lg">{playingAudio?.id===f.id?'⏸':'▶️'}</span>
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${playingAudio?.id===f.id ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-600' : 'bg-surface-50 dark:bg-surface-800 text-surface-400 group-hover:bg-primary-50 dark:group-hover:bg-primary-900/30 group-hover:text-primary-500'}`}>
+                                          <span className="text-sm">{playingAudio?.id===f.id?'⏸':'▶️'}</span>
+                                        </div>
                                       </button>
-                                      {playingAudio?.id===f.id && <div className="mt-2"><AudioPlayer file={f} toast={toast}/></div>}
+                                      <AnimatePresence>
+                                        {playingAudio?.id===f.id && (
+                                          <motion.div initial={{height:0,opacity:0}} animate={{height:'auto',opacity:1}} exit={{height:0,opacity:0}} className="overflow-hidden mt-2">
+                                            <div className="p-1"><AudioPlayer file={f} toast={toast}/></div>
+                                          </motion.div>
+                                        )}
+                                      </AnimatePresence>
                                     </div>
                                   ))
                                 }
                               </div>
                             )}
                             {activeTab==='homework' && (
-                              <div className="p-3 sm:p-4 rounded-xl bg-surface-50 dark:bg-surface-800">
-                                <p className="text-sm text-surface-700 dark:text-surface-300 whitespace-pre-wrap">{sess.homework||'Chưa có bài tập.'}</p>
+                              <div className="p-5 rounded-xl bg-white dark:bg-surface-900 border border-surface-100 dark:border-surface-800 shadow-sm relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-sakura-500/10 to-transparent rounded-bl-full pointer-events-none" />
+                                <p className="text-sm sm:text-base font-medium text-surface-800 dark:text-surface-200 whitespace-pre-wrap leading-relaxed relative z-10">{sess.homework||'Hiện tại chưa có bài tập về nhà cho buổi học này.'}</p>
                               </div>
                             )}
                             {activeTab==='quiz' && <QuizInteractive quiz={sess.quiz||[]} />}
@@ -263,17 +293,19 @@ function FileItem({ f, toast }) {
   }, [f, isImg, imgError]);
 
   return (
-    <div onClick={()=>openFile(f, toast)} className="flex items-center gap-3 p-3 rounded-xl bg-surface-50 dark:bg-surface-800 hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer group">
+    <div onClick={()=>openFile(f, toast)} className="flex items-center gap-4 p-4 rounded-xl bg-white dark:bg-surface-900 border border-surface-100 dark:border-surface-800 hover:border-primary-200 dark:hover:border-primary-800/50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer group">
       {isImg && thumb && !imgError ? (
-        <img src={thumb} onError={() => setImgError(true)} alt="" className="w-10 h-10 rounded-lg object-cover bg-surface-200 dark:bg-surface-700"/>
+        <img src={thumb} onError={() => setImgError(true)} alt="" className="w-12 h-12 rounded-xl object-cover bg-surface-100 dark:bg-surface-800 shadow-sm"/>
       ) : (
-        <div className="w-10 h-10 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xl">{getFileIcon(f.name || 'file')}</div>
+        <div className="w-12 h-12 rounded-xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center text-2xl text-primary-500 group-hover:scale-110 transition-transform duration-300">{getFileIcon(f.name || 'file')}</div>
       )}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-surface-700 dark:text-surface-300 truncate">{f.name || 'File'}</p>
-        <p className="text-xs text-surface-400">{formatFileSize(f.size)} {f.type ? `· ${f.type.toUpperCase()}` : ''}</p>
+        <p className="text-sm font-bold text-surface-900 dark:text-white truncate group-hover:text-primary-600 transition-colors">{f.name || 'File'}</p>
+        <p className="text-xs font-medium text-surface-400 mt-0.5">{formatFileSize(f.size)} {f.type ? `· ${f.type.toUpperCase()}` : ''}</p>
       </div>
-      <span className="text-primary-500 opacity-0 group-hover:opacity-100 transition-opacity text-lg">↗</span>
+      <div className="w-8 h-8 rounded-full bg-surface-50 dark:bg-surface-800 flex items-center justify-center text-surface-400 group-hover:bg-primary-500 group-hover:text-white transition-all duration-300 shrink-0">
+        <span className="text-sm">↗</span>
+      </div>
     </div>
   );
 }
@@ -355,25 +387,34 @@ function FlashcardArea({ flashcards, learnedFlashcards, onToggle, sessions, curr
   const prev = () => { setFlipped(false); setIdx(i => (i - 1 + activeItems.length) % activeItems.length); };
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="flex w-full max-w-sm justify-between items-center mb-2 px-2">
-        <p className="text-xs font-medium text-surface-500">{idx+1} / {activeItems.length}</p>
+    <div className="flex flex-col items-center py-4">
+      <div className="flex w-full max-w-sm justify-between items-center mb-6 px-2">
+        <p className="text-xs font-bold uppercase tracking-widest text-surface-500 bg-surface-100 dark:bg-surface-800 px-3 py-1 rounded-full">{idx+1} / {activeItems.length}</p>
         <div className="flex gap-2">
-          <button onClick={shuffle} className="btn-ghost text-xs py-1 px-2 rounded-lg bg-surface-100 dark:bg-surface-800 hover:bg-surface-200">🔀 Xáo trộn</button>
-          <button onClick={refresh} className="btn-ghost text-xs py-1 px-2 rounded-lg bg-surface-100 dark:bg-surface-800 hover:bg-surface-200">🔄 Làm mới</button>
+          <button onClick={shuffle} className="flex items-center gap-1.5 text-xs font-medium py-1.5 px-3 rounded-lg bg-surface-50 dark:bg-surface-800 text-surface-600 dark:text-surface-300 hover:bg-surface-200 dark:hover:bg-surface-700 hover:text-surface-900 dark:hover:text-white transition-colors cursor-pointer">
+            <span className="text-base opacity-70">🔀</span> Đảo
+          </button>
+          <button onClick={refresh} className="flex items-center gap-1.5 text-xs font-medium py-1.5 px-3 rounded-lg bg-surface-50 dark:bg-surface-800 text-surface-600 dark:text-surface-300 hover:bg-surface-200 dark:hover:bg-surface-700 hover:text-surface-900 dark:hover:text-white transition-colors cursor-pointer">
+            <span className="text-base opacity-70">🔄</span> Mới
+          </button>
         </div>
       </div>
       
-      <div className="relative w-full max-w-sm h-44 sm:h-48 cursor-pointer mb-4" style={{perspective:'1000px'}} onClick={()=>setFlipped(f=>!f)}>
-        <motion.div animate={{rotateY:flipped?180:0}} transition={{duration:0.6}} className="absolute inset-0" style={{transformStyle:'preserve-3d'}}>
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-3xl sm:text-4xl font-bold shadow-xl p-6" style={{backfaceVisibility:'hidden'}}>{fc.front}</div>
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-accent-500 to-accent-600 flex items-center justify-center text-white text-sm sm:text-lg font-medium p-6 text-center shadow-xl" style={{backfaceVisibility:'hidden',transform:'rotateY(180deg)'}}>{fc.back}</div>
+      <div className="relative w-full max-w-sm h-56 sm:h-64 cursor-pointer mb-8 group" style={{perspective:'1000px'}} onClick={()=>setFlipped(f=>!f)}>
+        <motion.div animate={{rotateY:flipped?180:0}} transition={{duration:0.6, type:"spring", bounce:0.3}} className="absolute inset-0" style={{transformStyle:'preserve-3d'}}>
+          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white to-surface-50 dark:from-surface-800 dark:to-surface-900 border border-surface-200 dark:border-surface-700 flex flex-col items-center justify-center shadow-xl group-hover:shadow-2xl transition-shadow p-8" style={{backfaceVisibility:'hidden'}}>
+            <p className="text-surface-900 dark:text-white text-5xl sm:text-6xl font-bold font-jp mb-2 text-center">{fc.front}</p>
+            <p className="text-surface-400 text-xs font-medium uppercase tracking-widest absolute bottom-6">Nhấn để lật</p>
+          </div>
+          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary-500 to-primary-700 flex flex-col items-center justify-center text-white p-8 text-center shadow-xl group-hover:shadow-2xl transition-shadow" style={{backfaceVisibility:'hidden',transform:'rotateY(180deg)'}}>
+            <p className="text-white text-xl sm:text-2xl font-bold leading-snug">{fc.back}</p>
+          </div>
         </motion.div>
       </div>
-      <div className="flex gap-3 items-center">
-        <button onClick={prev} className="btn-secondary text-sm">← Trước</button>
-        <button onClick={markLearned} className="btn-primary text-sm">✓ Đã học</button>
-        <button onClick={next} className="btn-secondary text-sm">Tiếp →</button>
+      <div className="flex gap-4 w-full max-w-sm">
+        <button onClick={prev} className="btn-secondary py-3 text-sm flex-1 font-semibold">← Trước</button>
+        <button onClick={markLearned} className="btn-primary py-3 px-8 text-sm font-bold shadow-lg shadow-primary-500/30">✓ Đã học</button>
+        <button onClick={next} className="btn-secondary py-3 text-sm flex-1 font-semibold">Tiếp →</button>
       </div>
     </div>
   );

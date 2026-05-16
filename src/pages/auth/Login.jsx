@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -16,7 +17,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      const result = await login(email, password);
+      const result = await login(email, password, rememberMe);
       if (result.success) {
         const r = result.user.role;
         navigate(r === 'admin' ? '/admin' : r === 'teacher' ? '/teacher' : '/student');
@@ -77,7 +78,20 @@ export default function Login() {
                 <label className="input-label">Mật khẩu</label>
                 <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="input" placeholder="••••••••" disabled={loading} />
               </div>
-              <button type="submit" className="btn-primary w-full py-3" disabled={loading}>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="checkbox" 
+                  id="rememberMe" 
+                  checked={rememberMe} 
+                  onChange={e => setRememberMe(e.target.checked)} 
+                  disabled={loading}
+                  className="w-4 h-4 rounded border-surface-300 dark:border-surface-600 text-primary-600 focus:ring-primary-500 bg-white dark:bg-surface-800 cursor-pointer"
+                />
+                <label htmlFor="rememberMe" className="text-sm font-medium text-surface-600 dark:text-surface-400 cursor-pointer select-none">
+                  Ghi nhớ đăng nhập
+                </label>
+              </div>
+              <button type="submit" className="btn-primary w-full py-3 mt-2" disabled={loading}>
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

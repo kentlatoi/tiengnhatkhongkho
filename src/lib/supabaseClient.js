@@ -12,6 +12,26 @@ supabaseUrl = supabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
 
 let supabase = null;
 
+const customStorage = {
+  getItem: (key) => {
+    return window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+  },
+  setItem: (key, value) => {
+    const remember = window.localStorage.getItem('jlpt_remember_me') === 'true';
+    if (remember) {
+      window.localStorage.setItem(key, value);
+      window.sessionStorage.removeItem(key);
+    } else {
+      window.sessionStorage.setItem(key, value);
+      window.localStorage.removeItem(key);
+    }
+  },
+  removeItem: (key) => {
+    window.localStorage.removeItem(key);
+    window.sessionStorage.removeItem(key);
+  }
+};
+
 // Only require URL + Key to activate Supabase (VITE_DATA_PROVIDER is optional)
 if (supabaseUrl && supabaseAnonKey) {
   try {
@@ -20,6 +40,7 @@ if (supabaseUrl && supabaseAnonKey) {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        storage: customStorage,
       },
     });
     console.log('[JLPT LMS] ✅ Supabase client initialized:', supabaseUrl);

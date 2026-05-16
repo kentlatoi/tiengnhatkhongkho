@@ -53,35 +53,38 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div>
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-        <h1 className="text-3xl font-bold text-surface-900 dark:text-white">
+    <div className="pb-12">
+      <motion.div initial={{ opacity: 0, y: -15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: "easeOut" }} className="mb-10">
+        <h1 className="text-3xl sm:text-4xl font-bold text-surface-900 dark:text-white tracking-tight mb-2">
           Bảng điều khiển <span className="gradient-text">Admin</span> 🛡️
         </h1>
-        <p className="text-surface-500 mt-1">Quản lý toàn bộ hệ thống JLPT学習.</p>
+        <p className="text-surface-500 sm:text-lg">Quản lý toàn bộ hệ thống JLPT学習.</p>
       </motion.div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-10">
         {stats.map((s, i) => <DashboardCard key={s.title} {...s} delay={i} />)}
       </div>
 
       {/* Recent activity */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.5 }}
         className="glass-card">
-        <h3 className="text-lg font-semibold text-surface-900 dark:text-white mb-4">Hoạt động gần đây</h3>
-        <div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar">
-          {logs.slice(0, 10).map(log => (
-            <div key={log.id} className="flex items-center gap-3 p-3 rounded-xl bg-surface-50 dark:bg-surface-800/50">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-                log.role === 'admin' ? 'bg-amber-500' : log.role === 'teacher' ? 'bg-blue-500' : 'bg-primary-500'
-              }`}>{log.userName?.[0]}</div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-surface-900 dark:text-white"><span className="font-medium">{log.userName}</span> — {log.action}</p>
-                <p className="text-xs text-surface-400">{new Date(log.timestamp).toLocaleString('vi-VN')}</p>
+        <div className="flex items-center justify-between border-b border-surface-100 dark:border-surface-800 pb-4 mb-4">
+          <h3 className="text-xl font-bold text-surface-900 dark:text-white">Hoạt động gần đây</h3>
+          <span className="text-sm font-medium text-surface-500 bg-surface-50 dark:bg-surface-800 px-3 py-1 rounded-full">{logs.length} bản ghi</span>
+        </div>
+        <div className="space-y-3 max-h-96 overflow-y-auto custom-scrollbar pr-2">
+          {logs.slice(0, 15).map(log => (
+            <div key={log.id} className="flex items-start gap-4 p-4 rounded-xl bg-surface-50/50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-800/50 hover:bg-white dark:hover:bg-surface-800 transition-colors group">
+              <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-sm font-bold text-white shadow-sm ${
+                log.role === 'admin' ? 'bg-amber-500 shadow-amber-500/20' : log.role === 'teacher' ? 'bg-blue-500 shadow-blue-500/20' : 'bg-primary-500 shadow-primary-500/20'
+              }`}>{log.userName?.[0] || '?'}</div>
+              <div className="flex-1 min-w-0 pt-0.5">
+                <p className="text-sm text-surface-900 dark:text-white leading-snug"><span className="font-bold text-surface-900 dark:text-white group-hover:text-primary-600 transition-colors">{log.userName}</span> đã {log.action}</p>
+                <p className="text-xs text-surface-400 mt-1 flex items-center gap-1"><span className="opacity-70">🕒</span> {new Date(log.timestamp).toLocaleString('vi-VN')}</p>
               </div>
             </div>
           ))}
-          {logs.length === 0 && <p className="text-surface-500 text-sm">Chưa có hoạt động.</p>}
+          {logs.length === 0 && <p className="text-surface-500 text-sm text-center py-8">Chưa có hoạt động nào được ghi nhận.</p>}
         </div>
       </motion.div>
     </div>
